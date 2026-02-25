@@ -1,0 +1,7 @@
+﻿services:
+  debil-be:
+    image: debil-be
+    build:
+      context: .
+      dockerfile: debil-be/Dockerfile
+
