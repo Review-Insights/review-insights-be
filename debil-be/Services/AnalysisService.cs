@@ -190,4 +190,41 @@ public class AnalysisService(AppDbContext db, IFileStorageService fileStorage, I
         await db.SaveChangesAsync(ct);
         return true;
     }
+
+    public async Task<bool> SaveTaskMetricsAsync(Guid id, SaveTaskMetricsRequest request,
+        CancellationToken ct = default)
+    {
+        var analysisExists = await db.Analyses.AnyAsync(a => a.Id == id, ct);
+        if (!analysisExists) return false;
+
+        var existing = await db.TaskMetrics
+            .Where(m => m.AnalysisId == id)
+            .ToListAsync(ct);
+        db.TaskMetrics.RemoveRange(existing);
+
+        var entities = request.Tasks.Select(t => new TaskMetric
+        {
+            Id = Guid.NewGuid(),
+            AnalysisId = id,
+            TaskId = t.TaskId,
+            TaskType = t.TaskType,
+            TaskName = t.TaskName,
+            ModelName = t.ModelName,
+            RecordCount = t.RecordCount,
+            AvgConfidence = t.AvgConfidence,
+            MinConfidence = t.MinConfidence,
+            MaxConfidence = t.MaxConfidence,
+            Accuracy = t.Accuracy,
+            Precision = t.Precision,
+            Recall = t.Recall,
+            F1Score = t.F1Score,
+            AucRoc = t.AucRoc,
+            Support = t.Support,
+            CreatedAt = DateTime.UtcNow
+        }).ToList();
+
+        db.TaskMetrics.AddRange(entities);
+        await db.SaveChangesAsync(ct);
+        return true;
+    }
 }

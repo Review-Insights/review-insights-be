@@ -11,4 +11,5 @@ public interface IAnalysisService
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
     Task<bool> UpdateStatusAsync(Guid id, UpdateAnalysisStatusRequest request, CancellationToken ct = default);
     Task<bool> AddRowsAsync(Guid id, AddAnalysisRowsRequest request, CancellationToken ct = default);
+    Task<bool> SaveTaskMetricsAsync(Guid id, SaveTaskMetricsRequest request, CancellationToken ct = default);
 }

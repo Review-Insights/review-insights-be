@@ -40,6 +40,8 @@ builder.Services.AddSingleton(rabbitSettings);
 builder.Services.AddSingleton<RabbitMqService>();
 builder.Services.AddSingleton<IQueueService>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RabbitMqService>());
+builder.Services.AddSingleton<AnalysisResultConsumer>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AnalysisResultConsumer>());
 
 builder.Services.AddScoped<IBlueprintService, BlueprintService>();
 builder.Services.AddScoped<IAnalysisService, AnalysisService>();
@@ -94,6 +96,8 @@ app.UseCors();
 app.MapHealthChecks("/health");
 app.MapBlueprintEndpoints();
 app.MapAnalysisEndpoints();
+app.MapStatsEndpoints();
+app.MapMetricsEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {

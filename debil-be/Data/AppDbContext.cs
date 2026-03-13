@@ -9,6 +9,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<BlueprintTask> BlueprintTasks => Set<BlueprintTask>();
     public DbSet<Analysis> Analyses => Set<Analysis>();
     public DbSet<AnalysisRow> AnalysisRows => Set<AnalysisRow>();
+    public DbSet<TaskMetric> TaskMetrics => Set<TaskMetric>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -77,6 +78,24 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             entity.HasIndex(e => e.AnalysisId);
             entity.HasIndex(e => new { e.AnalysisId, e.RowIndex }).IsUnique();
+        });
+
+        modelBuilder.Entity<TaskMetric>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.TaskId).IsRequired().HasMaxLength(256);
+            entity.Property(e => e.TaskType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TaskName).HasMaxLength(256);
+            entity.Property(e => e.ModelName).HasMaxLength(256);
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("NOW()");
+
+            entity.HasOne(e => e.Analysis)
+                .WithMany()
+                .HasForeignKey(e => e.AnalysisId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(e => e.AnalysisId);
+            entity.HasIndex(e => new { e.AnalysisId, e.TaskId }).IsUnique();
         });
     }
 }
