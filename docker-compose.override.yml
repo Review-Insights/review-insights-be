@@ -1,0 +1,3 @@
+# Compose override intentionally empty.
+# Project uses only values from `.env` and `compose.yaml`.
+services: {}
