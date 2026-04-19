@@ -1,9 +1,8 @@
-using debil_be.Configuration;
-using debil_be.Services;
 using Minio;
 using Minio.DataModel.Args;
+using ReviewInsights.Api.Configuration;
 
-namespace debil_be.Infrastructure;
+namespace ReviewInsights.Api.Infrastructure;
 
 public class MinioFileStorageService : IFileStorageService
 {
@@ -37,7 +36,7 @@ public class MinioFileStorageService : IFileStorageService
     {
         await EnsureBucketExistsAsync(ct);
 
-        var fileKey = $"analyses/{Guid.NewGuid()}/{fileName}";
+        var fileKey = $"uploads/{Guid.NewGuid()}/{fileName}";
 
         await _client.PutObjectAsync(new PutObjectArgs()
             .WithBucket(_bucketName)

@@ -9,17 +9,17 @@ EXPOSE 8081
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
-COPY ["debil-be/debil-be.csproj", "debil-be/"]
-RUN dotnet restore "debil-be/debil-be.csproj"
+COPY ["src/ReviewInsights.Api/ReviewInsights.Api.csproj", "src/ReviewInsights.Api/"]
+RUN dotnet restore "src/ReviewInsights.Api/ReviewInsights.Api.csproj"
 COPY . .
-WORKDIR "/src/debil-be"
-RUN dotnet build "./debil-be.csproj" -c $BUILD_CONFIGURATION -o /app/build
+WORKDIR "/src/src/ReviewInsights.Api"
+RUN dotnet build "./ReviewInsights.Api.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./debil-be.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./ReviewInsights.Api.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "debil-be.dll"]
+ENTRYPOINT ["dotnet", "ReviewInsights.Api.dll"]

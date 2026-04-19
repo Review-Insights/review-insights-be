@@ -1,4 +1,4 @@
-namespace debil_be.Configuration;
+namespace ReviewInsights.Api.Configuration;
 
 public class MinioSettings
 {

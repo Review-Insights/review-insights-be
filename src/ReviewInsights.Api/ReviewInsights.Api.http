@@ -1,0 +1,31 @@
+@review_insights_HostAddress = http://localhost:5030
+
+GET {{review_insights_HostAddress}}/health
+Accept: application/json
+
+###
+
+GET {{review_insights_HostAddress}}/dashboard/stats
+Accept: application/json
+
+###
+
+GET {{review_insights_HostAddress}}/reviews?page=1&limit=20
+Accept: application/json
+
+###
+
+GET {{review_insights_HostAddress}}/products?page=1&limit=20
+Accept: application/json
+
+###
+
+GET {{review_insights_HostAddress}}/uploads
+Accept: application/json
+
+###
+
+GET {{review_insights_HostAddress}}/reports
+Accept: application/json
+
+###

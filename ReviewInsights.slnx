@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="compose.yaml" />
+    <File Path="README.md" />
+    <File Path="TESTING.md" />
+  </Folder>
+  <Project Path="src/ReviewInsights.Api/ReviewInsights.Api.csproj" />
+</Solution>
