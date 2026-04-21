@@ -56,6 +56,11 @@ public class RabbitMqService : IQueueService, IHostedService
             await DeclareAndBindAsync(_settings.AnalyzeReviewsQueue, _settings.AnalyzeReviewsRoutingKey, ct);
             await DeclareAndBindAsync(_settings.GenerateReportQueue, _settings.GenerateReportRoutingKey, ct);
 
+            await DeclareAndBindAsync(_settings.UploadResultsQueue, _settings.UploadResultsRoutingKey, ct);
+            await DeclareAndBindAsync(_settings.UploadErrorQueue, _settings.UploadErrorRoutingKey, ct);
+            await DeclareAndBindAsync(_settings.ReportResultQueue, _settings.ReportResultRoutingKey, ct);
+            await DeclareAndBindAsync(_settings.ReportErrorQueue, _settings.ReportErrorRoutingKey, ct);
+
             _logger.LogInformation(
                 "RabbitMQ initialized. Exchange={Exchange}, Queues=[{AnalyzeQueue}, {ReportQueue}]",
                 _settings.ExchangeName, _settings.AnalyzeReviewsQueue, _settings.GenerateReportQueue);
