@@ -22,7 +22,20 @@ public class ProductsService
     {
         var (p, l) = PaginationParams.Normalize(page, limit);
 
-        var aggregates = await BuildAggregatesQuery(search, departmentName, divisionName).ToListAsync(ct);
+        var filtered = BuildFilteredReviewsQuery(search, departmentName, divisionName);
+
+        var aggregates = await BuildAggregatesQuery(filtered).ToListAsync(ct);
+        var namesByProduct = await BuildNamesMapAsync(filtered, ct);
+
+        foreach (var product in aggregates)
+        {
+            if (namesByProduct.TryGetValue(product.ClothingId, out var names))
+            {
+                product.ClassName = names.ClassName;
+                product.DepartmentName = names.DepartmentName;
+                product.DivisionName = names.DivisionName;
+            }
+        }
 
         var ordered = ApplySorting(aggregates, sortBy, SortOrderParser.Parse(sortOrder));
 
@@ -32,7 +45,7 @@ public class ProductsService
         return PaginatedResponse<ProductDto>.Create(page1, total, p, l);
     }
 
-    private IQueryable<ProductDto> BuildAggregatesQuery(string? search, string? departmentName, string? divisionName)
+    private IQueryable<Domain.Entities.Review> BuildFilteredReviewsQuery(string? search, string? departmentName, string? divisionName)
     {
         var query = _db.Reviews.AsNoTracking().AsQueryable();
 
@@ -46,21 +59,24 @@ public class ProductsService
         }
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
+            var trimmed = search.Trim();
+            var term = $"%{trimmed}%";
             query = query.Where(r =>
-                r.ClothingId.ToString().Contains(search.Trim()) ||
+                r.ClothingId.ToString().Contains(trimmed) ||
                 (r.ClassName != null && EF.Functions.ILike(r.ClassName, term)) ||
                 (r.DepartmentName != null && EF.Functions.ILike(r.DepartmentName, term)));
         }
 
+        return query;
+    }
+
+    private static IQueryable<ProductDto> BuildAggregatesQuery(IQueryable<Domain.Entities.Review> query)
+    {
         return query
             .GroupBy(r => r.ClothingId)
             .Select(g => new ProductDto
             {
                 ClothingId = g.Key,
-                ClassName = g.Max(r => r.ClassName),
-                DepartmentName = g.Max(r => r.DepartmentName),
-                DivisionName = g.Max(r => r.DivisionName),
                 TotalReviews = g.Count(),
                 AverageRating = g.Average(r => (double)r.Rating),
                 RecommendationRate = (double)g.Count(r => r.RecommendedInd) / g.Count() * 100.0,
@@ -73,6 +89,40 @@ public class ProductsService
                 Priority = g.Max(r => r.Priority) ?? Priority.Low
             });
     }
+
+    private static async Task<Dictionary<int, (string? ClassName, string? DepartmentName, string? DivisionName)>>
+        BuildNamesMapAsync(IQueryable<Domain.Entities.Review> query, CancellationToken ct)
+    {
+        var raw = await query
+            .GroupBy(r => new { r.ClothingId, r.ClassName, r.DepartmentName, r.DivisionName })
+            .Select(g => new
+            {
+                g.Key.ClothingId,
+                g.Key.ClassName,
+                g.Key.DepartmentName,
+                g.Key.DivisionName,
+                Count = g.Count()
+            })
+            .ToListAsync(ct);
+
+        return raw
+            .GroupBy(x => x.ClothingId)
+            .ToDictionary(
+                g => g.Key,
+                g => (
+                    ClassName: PickModeByCount(g.Select(x => (x.ClassName, x.Count))),
+                    DepartmentName: PickModeByCount(g.Select(x => (x.DepartmentName, x.Count))),
+                    DivisionName: PickModeByCount(g.Select(x => (x.DivisionName, x.Count)))
+                ));
+    }
+
+    private static string? PickModeByCount(IEnumerable<(string? Value, int Count)> pairs) =>
+        pairs.Where(p => !string.IsNullOrEmpty(p.Value))
+             .GroupBy(p => p.Value!)
+             .Select(g => new { Value = g.Key, Total = g.Sum(x => x.Count) })
+             .OrderByDescending(x => x.Total)
+             .ThenBy(x => x.Value)
+             .FirstOrDefault()?.Value;
 
     private static List<ProductDto> ApplySorting(List<ProductDto> items, string? sortBy, SortOrder order)
     {
@@ -104,9 +154,9 @@ public class ProductsService
         var detail = new ProductDetailDto
         {
             ClothingId = clothingId,
-            ClassName = reviews.Select(r => r.ClassName).FirstOrDefault(c => !string.IsNullOrEmpty(c)),
-            DepartmentName = reviews.Select(r => r.DepartmentName).FirstOrDefault(c => !string.IsNullOrEmpty(c)),
-            DivisionName = reviews.Select(r => r.DivisionName).FirstOrDefault(c => !string.IsNullOrEmpty(c)),
+            ClassName = PickMostFrequent(reviews.Select(r => r.ClassName)),
+            DepartmentName = PickMostFrequent(reviews.Select(r => r.DepartmentName)),
+            DivisionName = PickMostFrequent(reviews.Select(r => r.DivisionName)),
             TotalReviews = reviews.Count,
             AverageRating = reviews.Average(r => (double)r.Rating),
             RecommendationRate = (double)reviews.Count(r => r.RecommendedInd) / reviews.Count * 100.0,
@@ -150,6 +200,13 @@ public class ProductsService
 
         return BuildAspectAggregates(reviews.SelectMany(r => r.AspectSentiments));
     }
+
+    private static string? PickMostFrequent(IEnumerable<string?> values) =>
+        values.Where(v => !string.IsNullOrEmpty(v))
+              .GroupBy(v => v!)
+              .OrderByDescending(g => g.Count())
+              .ThenBy(g => g.Key)
+              .FirstOrDefault()?.Key;
 
     private static Dictionary<string, int> BuildSentimentDistribution(IEnumerable<Sentiment?> sentiments)
     {

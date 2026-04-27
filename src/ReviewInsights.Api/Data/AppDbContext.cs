@@ -22,7 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.FileSize).HasColumnName("file_size");
             entity.Property(e => e.StorageKey).HasColumnName("storage_key").IsRequired().HasMaxLength(1024);
             entity.Property(e => e.Status).HasColumnName("status")
-                .HasConversion<string>().HasMaxLength(20).IsRequired();
+                .HasConversion<int>().IsRequired();
             entity.Property(e => e.TotalRecords).HasColumnName("total_records");
             entity.Property(e => e.AnalyzedRecords).HasColumnName("analyzed_records");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
@@ -50,14 +50,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.ClassName).HasColumnName("class_name").HasMaxLength(100);
 
             entity.Property(e => e.OverallSentiment).HasColumnName("overall_sentiment")
-                .HasConversion<string>().HasMaxLength(20);
+                .HasConversion<int>();
             entity.Property(e => e.AspectSentiments).HasColumnName("aspect_sentiments")
                 .HasColumnType("jsonb");
             entity.Property(e => e.ChurnProbability).HasColumnName("churn_probability");
             entity.Property(e => e.ChurnCauses).HasColumnName("churn_causes")
                 .HasColumnType("jsonb");
             entity.Property(e => e.Priority).HasColumnName("priority")
-                .HasConversion<string>().HasMaxLength(20);
+                .HasConversion<int>();
 
             entity.Property(e => e.UploadId).HasColumnName("upload_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");
@@ -84,7 +84,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Title).HasColumnName("title").IsRequired().HasMaxLength(500);
             entity.Property(e => e.Status).HasColumnName("status")
-                .HasConversion<string>().HasMaxLength(20).IsRequired();
+                .HasConversion<int>().IsRequired();
             entity.Property(e => e.Filters).HasColumnName("filters").HasColumnType("jsonb").IsRequired();
             entity.Property(e => e.GeneratedAt).HasColumnName("generated_at").HasDefaultValueSql("NOW()");
             entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
