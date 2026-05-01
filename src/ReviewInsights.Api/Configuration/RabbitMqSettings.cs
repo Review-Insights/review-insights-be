@@ -25,5 +25,5 @@ public class RabbitMqSettings
     public string ReportErrorQueue { get; set; } = "review-insights.reports.errors";
     public string ReportErrorRoutingKey { get; set; } = "reports.errors";
 
-    public int BatchSize { get; set; } = 50;
+    public int BatchSize { get; set; } = 200;
 }
