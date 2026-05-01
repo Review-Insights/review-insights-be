@@ -191,7 +191,7 @@ Tabela `products` celowo nie istnieje - listy/agregaty produktowe sa liczone on-
 }
 ```
 
-Backend dzieli recenzje na batche o rozmiarze `RabbitMQ:BatchSize` (domyslnie 50).
+Backend dzieli recenzje na batche o rozmiarze `RabbitMQ:BatchSize` (domyslnie 200).
 
 ### Generacja raportu (`review-insights.generate.report`)
 
