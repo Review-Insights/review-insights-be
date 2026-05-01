@@ -10,10 +10,12 @@ namespace ReviewInsights.Api.Features.Products;
 public class ProductsService
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<ProductsService> _logger;
 
-    public ProductsService(AppDbContext db)
+    public ProductsService(AppDbContext db, ILogger<ProductsService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<PaginatedResponse<ProductDto>> ListAsync(
@@ -21,6 +23,10 @@ public class ProductsService
         string? sortBy, string? sortOrder, CancellationToken ct)
     {
         var (p, l) = PaginationParams.Normalize(page, limit);
+
+        _logger.LogDebug(
+            "Listing products: Page={Page}, Limit={Limit}, Search={Search}, Department={Department}, Division={Division}",
+            p, l, search, departmentName, divisionName);
 
         var filtered = BuildFilteredReviewsQuery(search, departmentName, divisionName);
 
@@ -41,6 +47,8 @@ public class ProductsService
 
         var total = ordered.Count;
         var page1 = ordered.Skip((p - 1) * l).Take(l).ToList();
+
+        _logger.LogDebug("Listed products: Total={Total}, Returned={Returned}", total, page1.Count);
 
         return PaginatedResponse<ProductDto>.Create(page1, total, p, l);
     }
@@ -142,6 +150,8 @@ public class ProductsService
 
     public async Task<ProductDetailDto> GetDetailAsync(int clothingId, CancellationToken ct)
     {
+        _logger.LogDebug("Fetching product detail for ClothingId={ClothingId}", clothingId);
+
         var reviews = await _db.Reviews.AsNoTracking()
             .Where(r => r.ClothingId == clothingId)
             .ToListAsync(ct);

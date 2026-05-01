@@ -120,6 +120,10 @@ public class UploadsService
             throw new UnsupportedMediaTypeException($"Unsupported file extension '{extension}'. Allowed: .csv, .json");
         }
 
+        _logger.LogInformation(
+            "Starting upload for file {FileName} ({Extension}, {FileSizeBytes} bytes)",
+            file.FileName, extension, file.Length);
+
         var uploadId = Guid.NewGuid();
 
         string storageKey;
@@ -185,8 +189,16 @@ public class UploadsService
     private async Task PublishAnalyzeBatchesAsync(FileUpload upload, List<Review> reviews, CancellationToken ct)
     {
         var batchSize = Math.Max(1, _mqSettings.BatchSize);
+        var totalBatches = (int)Math.Ceiling((double)reviews.Count / batchSize);
+
+        _logger.LogInformation(
+            "Publishing {TotalReviews} reviews in {TotalBatches} batch(es) of {BatchSize} for upload {UploadId}",
+            reviews.Count, totalBatches, batchSize, upload.Id);
+
+        var batchIndex = 0;
         for (var i = 0; i < reviews.Count; i += batchSize)
         {
+            batchIndex++;
             var batch = reviews.Skip(i).Take(batchSize)
                 .Select(r => new ReviewInput
                 {
@@ -203,6 +215,10 @@ public class UploadsService
                 })
                 .ToList();
 
+            _logger.LogDebug(
+                "Publishing analyze batch {BatchIndex}/{TotalBatches} ({BatchCount} reviews) for upload {UploadId}",
+                batchIndex, totalBatches, batch.Count, upload.Id);
+
             await _queue.PublishAnalyzeReviewsAsync(new AnalyzeReviewsMessage
             {
                 TaskType = "analyze_reviews",
@@ -214,16 +230,22 @@ public class UploadsService
 
     public async Task DeleteAsync(Guid uploadId, CancellationToken ct)
     {
+        _logger.LogInformation("Deleting upload {UploadId}", uploadId);
+
         var upload = await _db.FileUploads.FirstOrDefaultAsync(u => u.Id == uploadId, ct)
                      ?? throw new NotFoundException($"Upload {uploadId} not found");
 
         await using var tx = await _db.Database.BeginTransactionAsync(ct);
 
-        await _db.Reviews.Where(r => r.UploadId == uploadId).ExecuteDeleteAsync(ct);
+        var deletedReviews = await _db.Reviews.Where(r => r.UploadId == uploadId).ExecuteDeleteAsync(ct);
         _db.FileUploads.Remove(upload);
         await _db.SaveChangesAsync(ct);
 
         await tx.CommitAsync(ct);
+
+        _logger.LogInformation(
+            "Upload {UploadId} deleted from database ({DeletedReviews} reviews removed)",
+            uploadId, deletedReviews);
 
         try
         {
@@ -231,7 +253,9 @@ public class UploadsService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to delete blob {StorageKey} for upload {UploadId}", upload.StorageKey, uploadId);
+            _logger.LogWarning(ex,
+                "Failed to delete blob {StorageKey} for upload {UploadId} — file may remain in storage",
+                upload.StorageKey, uploadId);
         }
     }
 

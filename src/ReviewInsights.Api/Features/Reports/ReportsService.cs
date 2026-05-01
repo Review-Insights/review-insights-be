@@ -42,7 +42,8 @@ public class ReportsService
                 Filters = r.Filters,
                 GeneratedAt = r.GeneratedAt,
                 CompletedAt = r.CompletedAt,
-                TotalRecords = r.TotalRecords
+                TotalRecords = r.TotalRecords,
+                ErrorMessage = r.ErrorMessage
             })
             .ToListAsync(ct);
 
@@ -63,6 +64,7 @@ public class ReportsService
             GeneratedAt = r.GeneratedAt,
             CompletedAt = r.CompletedAt,
             TotalRecords = r.TotalRecords,
+            ErrorMessage = r.ErrorMessage,
             Summary = r.Summary,
             Insights = r.Insights,
             Suggestions = r.Suggestions
@@ -79,10 +81,18 @@ public class ReportsService
     {
         ValidatePayload(payload);
 
+        _logger.LogInformation(
+            "Generating report '{Title}' with filters: Department={Department}, Division={Division}, ClothingId={ClothingId}",
+            payload.Title.Trim(),
+            payload.Filters.DepartmentName,
+            payload.Filters.DivisionName,
+            payload.Filters.ClothingId);
+
         var query = ApplyFilters(_db.Reviews.AsNoTracking(), payload.Filters);
         var totalRecords = await query.CountAsync(ct);
         if (totalRecords == 0)
         {
+            _logger.LogWarning("Report generation aborted: no reviews match the provided filters");
             throw new UnprocessableEntityException("No reviews match the provided filters");
         }
 
@@ -99,12 +109,20 @@ public class ReportsService
         _db.Reports.Add(report);
         await _db.SaveChangesAsync(ct);
 
+        _logger.LogInformation(
+            "Report {ReportId} '{Title}' created with {TotalRecords} matching reviews",
+            report.Id, report.Title, totalRecords);
+
         try
         {
             var sample = await query
                 .OrderBy(r => r.CreatedAt)
                 .Take(_limits.MaxReviewsPerReport)
                 .ToListAsync(ct);
+
+            _logger.LogInformation(
+                "Dispatching report {ReportId} to AI worker with {ReviewCount} reviews (limit={Limit})",
+                report.Id, sample.Count, _limits.MaxReviewsPerReport);
 
             var message = new GenerateReportMessage
             {
@@ -152,17 +170,22 @@ public class ReportsService
             Filters = report.Filters,
             GeneratedAt = report.GeneratedAt,
             CompletedAt = report.CompletedAt,
-            TotalRecords = report.TotalRecords
+            TotalRecords = report.TotalRecords,
+            ErrorMessage = report.ErrorMessage
         };
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct)
     {
+        _logger.LogInformation("Deleting report {ReportId}", id);
+
         var report = await _db.Reports.FirstOrDefaultAsync(r => r.Id == id, ct)
                      ?? throw new NotFoundException($"Report {id} not found");
 
         _db.Reports.Remove(report);
         await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation("Report {ReportId} '{Title}' deleted", id, report.Title);
     }
 
     private static void ValidatePayload(GenerateReportPayload payload)

@@ -12,6 +12,7 @@ public class ReportListItemDto
     public DateTime GeneratedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public int TotalRecords { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 public class ReportDetailDto : ReportListItemDto

@@ -100,6 +100,10 @@ public class RabbitMqService : IQueueService, IHostedService
         var json = JsonSerializer.Serialize(payload, JsonOptions);
         var body = Encoding.UTF8.GetBytes(json);
 
+        _logger.LogDebug(
+            "Publishing message to exchange {Exchange} with routing key {RoutingKey} ({Bytes} bytes)",
+            _settings.ExchangeName, routingKey, body.Length);
+
         var properties = new BasicProperties
         {
             Persistent = true,
@@ -113,15 +117,21 @@ public class RabbitMqService : IQueueService, IHostedService
             basicProperties: properties,
             body: body,
             cancellationToken: ct);
+
+        _logger.LogInformation(
+            "Message published to {RoutingKey} ({Bytes} bytes)",
+            routingKey, body.Length);
     }
 
     public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("RabbitMQ publisher shutting down");
         if (_channel is not null)
             await _channel.CloseAsync(cancellationToken);
         if (_connection is not null)
             await _connection.CloseAsync(cancellationToken);
+        _logger.LogInformation("RabbitMQ publisher stopped");
     }
 }

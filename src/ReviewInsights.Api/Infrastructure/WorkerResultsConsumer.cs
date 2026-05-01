@@ -77,10 +77,12 @@ public class WorkerResultsConsumer : IHostedService
 
     public async Task StopAsync(CancellationToken cancellationToken)
     {
+        _logger.LogInformation("WorkerResultsConsumer shutting down");
         if (_channel is not null)
             await _channel.CloseAsync(cancellationToken);
         if (_connection is not null)
             await _connection.CloseAsync(cancellationToken);
+        _logger.LogInformation("WorkerResultsConsumer stopped");
     }
 
     private async Task DeclareAndBindAsync(string queue, string routingKey, CancellationToken ct)
@@ -142,6 +144,10 @@ public class WorkerResultsConsumer : IHostedService
         var message = JsonSerializer.Deserialize<WorkerUploadResultsMessage>(body, JsonOptions)
             ?? throw new JsonException("Null WorkerUploadResultsMessage");
 
+        _logger.LogInformation(
+            "Received upload results for {UploadId}: {ResultCount} results",
+            message.UploadId, message.Results?.Count ?? 0);
+
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<WorkerService>();
         await service.PatchAnalyzeResultsAsync(
@@ -155,6 +161,10 @@ public class WorkerResultsConsumer : IHostedService
         var message = JsonSerializer.Deserialize<WorkerUploadErrorMessage>(body, JsonOptions)
             ?? throw new JsonException("Null WorkerUploadErrorMessage");
 
+        _logger.LogWarning(
+            "Worker reported upload error for {UploadId}: {ErrorMessage}",
+            message.UploadId, message.ErrorMessage);
+
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<WorkerService>();
         await service.RegisterUploadErrorAsync(
@@ -167,6 +177,8 @@ public class WorkerResultsConsumer : IHostedService
     {
         var message = JsonSerializer.Deserialize<WorkerReportResultMessage>(body, JsonOptions)
             ?? throw new JsonException("Null WorkerReportResultMessage");
+
+        _logger.LogInformation("Received report result for {ReportId}", message.ReportId);
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<WorkerService>();
@@ -185,6 +197,10 @@ public class WorkerResultsConsumer : IHostedService
     {
         var message = JsonSerializer.Deserialize<WorkerReportErrorMessage>(body, JsonOptions)
             ?? throw new JsonException("Null WorkerReportErrorMessage");
+
+        _logger.LogWarning(
+            "Worker reported report error for {ReportId}: {ErrorMessage}",
+            message.ReportId, message.ErrorMessage);
 
         using var scope = _scopeFactory.CreateScope();
         var service = scope.ServiceProvider.GetRequiredService<WorkerService>();

@@ -11,14 +11,17 @@ public class DashboardService
 {
     private static readonly CultureInfo PlCulture = CultureInfo.GetCultureInfo("pl-PL");
     private readonly AppDbContext _db;
+    private readonly ILogger<DashboardService> _logger;
 
-    public DashboardService(AppDbContext db)
+    public DashboardService(AppDbContext db, ILogger<DashboardService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<List<DashboardStatCardDto>> GetStatsAsync(CancellationToken ct)
     {
+        _logger.LogDebug("Fetching dashboard stats");
         var now = DateTime.UtcNow;
         var oneWeekAgo = now.AddDays(-7);
         var twoWeeksAgo = now.AddDays(-14);
@@ -105,6 +108,8 @@ public class DashboardService
 
     public async Task<List<SentimentTrendPointDto>> GetSentimentTrendAsync(string? period, CancellationToken ct)
     {
+        _logger.LogDebug("Fetching sentiment trend for period {Period}", period ?? "30d");
+
         var (from, granularity) = ResolvePeriod(period);
 
         var query = _db.Reviews.AsNoTracking()

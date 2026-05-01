@@ -18,11 +18,16 @@ public class WorkerService
 
     public async Task PatchAnalyzeResultsAsync(Guid uploadId, WorkerAnalyzeResultsRequest request, CancellationToken ct)
     {
+        _logger.LogInformation(
+            "Processing analyze results for upload {UploadId}: {ResultCount} results received",
+            uploadId, request.Results.Count);
+
         var upload = await _db.FileUploads.FirstOrDefaultAsync(u => u.Id == uploadId, ct)
                      ?? throw new NotFoundException($"Upload {uploadId} not found");
 
         if (request.Results.Count == 0)
         {
+            _logger.LogWarning("Received empty results batch for upload {UploadId}", uploadId);
             return;
         }
 
@@ -38,7 +43,9 @@ public class WorkerService
         {
             if (!byId.TryGetValue(result.ReviewId, out var review))
             {
-                _logger.LogWarning("Worker sent unknown review {ReviewId} for upload {UploadId}", result.ReviewId, uploadId);
+                _logger.LogWarning(
+                    "Worker sent unknown ReviewId={ReviewId} for upload {UploadId} — skipping",
+                    result.ReviewId, uploadId);
                 continue;
             }
             if (review.AnalyzedAt is not null)
@@ -55,21 +62,31 @@ public class WorkerService
         }
 
         upload.AnalyzedRecords = Math.Min(upload.TotalRecords, upload.AnalyzedRecords + patchedThisCall);
+
         if (upload.AnalyzedRecords >= upload.TotalRecords && upload.TotalRecords > 0)
         {
             upload.Status = UploadStatus.Done;
             upload.CompletedAt = now;
+            _logger.LogInformation(
+                "Upload {UploadId} analysis completed: {TotalRecords} records analyzed",
+                uploadId, upload.TotalRecords);
         }
         else if (upload.Status == UploadStatus.Uploading)
         {
             upload.Status = UploadStatus.Analyzing;
         }
 
+        _logger.LogInformation(
+            "Upload {UploadId} progress: {AnalyzedRecords}/{TotalRecords} analyzed (+{PatchedThisCall} this batch)",
+            uploadId, upload.AnalyzedRecords, upload.TotalRecords, patchedThisCall);
+
         await _db.SaveChangesAsync(ct);
     }
 
     public async Task PatchReportResultAsync(Guid reportId, WorkerReportResultRequest request, CancellationToken ct)
     {
+        _logger.LogInformation("Applying report result for report {ReportId}", reportId);
+
         var report = await _db.Reports.FirstOrDefaultAsync(r => r.Id == reportId, ct)
                      ?? throw new NotFoundException($"Report {reportId} not found");
 
@@ -80,10 +97,17 @@ public class WorkerService
         report.CompletedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "Report {ReportId} completed: {InsightCount} insights, {SuggestionCount} suggestions",
+            reportId, report.Insights.Count, report.Suggestions.Count);
     }
 
     public async Task RegisterUploadErrorAsync(Guid uploadId, WorkerErrorRequest request, CancellationToken ct)
     {
+        _logger.LogWarning(
+            "Registering upload error for {UploadId}: {ErrorMessage}", uploadId, request.ErrorMessage);
+
         var upload = await _db.FileUploads.FirstOrDefaultAsync(u => u.Id == uploadId, ct)
                      ?? throw new NotFoundException($"Upload {uploadId} not found");
 
@@ -96,6 +120,9 @@ public class WorkerService
 
     public async Task RegisterReportErrorAsync(Guid reportId, WorkerErrorRequest request, CancellationToken ct)
     {
+        _logger.LogWarning(
+            "Registering report error for {ReportId}: {ErrorMessage}", reportId, request.ErrorMessage);
+
         var report = await _db.Reports.FirstOrDefaultAsync(r => r.Id == reportId, ct)
                      ?? throw new NotFoundException($"Report {reportId} not found");
 

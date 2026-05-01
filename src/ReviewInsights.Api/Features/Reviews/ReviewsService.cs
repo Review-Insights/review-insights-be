@@ -8,15 +8,21 @@ namespace ReviewInsights.Api.Features.Reviews;
 public class ReviewsService
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<ReviewsService> _logger;
 
-    public ReviewsService(AppDbContext db)
+    public ReviewsService(AppDbContext db, ILogger<ReviewsService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
     public async Task<PaginatedResponse<ReviewListItemDto>> ListAsync(ReviewFilterParams filters, CancellationToken ct)
     {
         var (p, l) = PaginationParams.Normalize(filters.Page, filters.Limit);
+
+        _logger.LogDebug(
+            "Listing reviews: Page={Page}, Limit={Limit}, UploadId={UploadId}, Sentiment={Sentiment}",
+            p, l, filters.UploadId, filters.Sentiment);
 
         var query = ReviewQueryBuilder.Apply(_db.Reviews.AsNoTracking(), filters);
 
@@ -42,11 +48,17 @@ public class ReviewsService
             })
             .ToListAsync(ct);
 
+        _logger.LogDebug(
+            "Listed reviews: Total={Total}, Returned={Returned}, Page={Page}",
+            total, items.Count, p);
+
         return PaginatedResponse<ReviewListItemDto>.Create(items, total, p, l);
     }
 
     public async Task<ReviewDto> GetAsync(Guid id, CancellationToken ct)
     {
+        _logger.LogDebug("Fetching review {ReviewId}", id);
+
         var r = await _db.Reviews.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new NotFoundException($"Review {id} not found");
 
