@@ -95,6 +95,8 @@ Flaga `-v` usuwa wszystkie volumy (Postgres, MinIO, RabbitMQ).
 
 Aktualnie schemat tworzony jest przez `db.Database.EnsureCreatedAsync()` przy starcie aplikacji (MVP).
 
+> UWAGA: `EnsureCreatedAsync` nie wprowadza zmian w schemacie, jesli baza juz istnieje. Po kazdej modyfikacji typow kolumn lub mapowan w `AppDbContext` (np. zmiana `HasConversion`), nalezy usunac istniejaca baze, zeby przebudowala sie od nowa: `docker compose down -v` (usuwa volumy) albo recznie `DROP DATABASE reviewinsights`.
+
 Tabele:
 
 - `file_uploads` - rekord na kazdy upload (status, total/analyzed records, storage key)

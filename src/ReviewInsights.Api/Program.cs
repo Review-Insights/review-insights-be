@@ -58,6 +58,7 @@ builder.Services.AddSingleton(rabbitSettings);
 builder.Services.AddSingleton<RabbitMqService>();
 builder.Services.AddSingleton<IQueueService>(sp => sp.GetRequiredService<RabbitMqService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RabbitMqService>());
+builder.Services.AddHostedService<WorkerResultsConsumer>();
 
 var reportLimits = new ReportLimits();
 builder.Configuration.GetSection("ReportLimits").Bind(reportLimits);
@@ -131,7 +132,6 @@ app.MapReviewsEndpoints();
 app.MapProductsEndpoints();
 app.MapReportsEndpoints();
 app.MapUploadsEndpoints();
-app.MapWorkerEndpoints();
 
 using (var scope = app.Services.CreateScope())
 {
