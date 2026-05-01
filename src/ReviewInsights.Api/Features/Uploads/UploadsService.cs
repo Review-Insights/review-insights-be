@@ -39,6 +39,15 @@ public class UploadsService
         _logger = logger;
     }
 
+    public async Task<FileUploadDto> GetByIdAsync(Guid uploadId, CancellationToken ct)
+    {
+        var upload = await _db.FileUploads.AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == uploadId, ct)
+            ?? throw new NotFoundException($"Upload {uploadId} not found");
+
+        return ToDto(upload);
+    }
+
     public async Task<PaginatedResponse<FileUploadDto>> ListAsync(
         int? page, int? limit, string? status, string? sortBy, string? sortOrder, CancellationToken ct)
     {

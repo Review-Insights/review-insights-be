@@ -12,6 +12,9 @@ public static class UploadsEndpoints
             CancellationToken ct) =>
                 Results.Ok(await service.ListAsync(page, limit, status, sortBy, sortOrder, ct)));
 
+        group.MapGet("{id:guid}", async (Guid id, UploadsService service, CancellationToken ct) =>
+            Results.Ok(await service.GetByIdAsync(id, ct)));
+
         group.MapPost("", async (HttpRequest request, UploadsService service, CancellationToken ct) =>
         {
             if (!request.HasFormContentType)
