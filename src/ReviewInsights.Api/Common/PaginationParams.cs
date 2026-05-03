@@ -4,7 +4,7 @@ public static class PaginationParams
 {
     public const int DefaultLimit = 20;
     public const int DefaultPage = 1;
-    private static readonly int[] AllowedLimits = [10, 20, 50, 100];
+    private static readonly int[] AllowedLimits = [5, 10, 20, 50, 100];
 
     public static (int Page, int Limit) Normalize(int? page, int? limit)
     {

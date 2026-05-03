@@ -186,6 +186,7 @@ public class WorkerResultsConsumer : IHostedService
             message.ReportId,
             new WorkerReportResultRequest
             {
+                Scope = message.Scope ?? new Domain.ValueObjects.ReportScope(),
                 Summary = message.Summary ?? new Domain.ValueObjects.ReportSummary(),
                 Insights = message.Insights ?? [],
                 Suggestions = message.Suggestions ?? []
@@ -225,6 +226,7 @@ public class WorkerResultsConsumer : IHostedService
     private class WorkerReportResultMessage
     {
         public Guid ReportId { get; set; }
+        public Domain.ValueObjects.ReportScope? Scope { get; set; }
         public Domain.ValueObjects.ReportSummary? Summary { get; set; }
         public List<Domain.ValueObjects.ReportInsight>? Insights { get; set; }
         public List<Domain.ValueObjects.ReportSuggestion>? Suggestions { get; set; }

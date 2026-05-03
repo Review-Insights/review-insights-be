@@ -137,6 +137,8 @@ Tabela `products` celowo nie istnieje - listy/agregaty produktowe sa liczone on-
 | GET | `/products/{clothingId}/trends` | Trendy miesieczne (rating, sentiment, count) |
 | GET | `/products/{clothingId}/aspects` | Agregaty aspektow (material, sizing, fit, color, price) |
 
+Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`. Backend ocenia go trendowo z ostatniego miesiaca, porownujac swiezy udzial opinii `high`/`critical` i ich sile do wczesniejszego okresu, dzieki czemu produkt moze zejsc z `critical`, gdy jakosc realnie sie poprawi.
+
 ### Reports
 
 | Metoda | Endpoint | Opis |

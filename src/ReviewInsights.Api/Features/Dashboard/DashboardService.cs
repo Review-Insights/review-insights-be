@@ -57,33 +57,37 @@ public class DashboardService
 
         return
         [
-            BuildCard("total_reviews", "Wszystkie opinie",
+            BuildCard("total_reviews",
                 totalReviews.ToString("N0", PlCulture),
-                FormatChange(newThisWeek - newPrevWeek, "w tym tygodniu"),
-                Trend(newThisWeek - newPrevWeek)),
-            BuildCard("average_rating", "Srednia ocena",
+                FormatChange(newThisWeek - newPrevWeek),
+                Trend(newThisWeek - newPrevWeek),
+                "week"),
+            BuildCard("average_rating",
                 $"{avgRating.ToString("F1", PlCulture)} / 5",
-                FormatChangeDouble(avgRating - avgRatingPrev, "vs poprzedni miesiac"),
-                Trend(avgRating - avgRatingPrev)),
-            BuildCard("recommendation_rate", "Wskaznik rekomendacji",
+                FormatChangeDouble(avgRating - avgRatingPrev),
+                Trend(avgRating - avgRatingPrev),
+                "month"),
+            BuildCard("recommendation_rate",
                 $"{recommendationRate.ToString("F1", PlCulture)}%",
-                FormatChangeDouble(recommendationRate - recommendationRatePrev, "vs poprzedni miesiac", "%"),
-                Trend(recommendationRate - recommendationRatePrev)),
-            BuildCard("high_priority", "Wysoki priorytet",
+                FormatChangeDouble(recommendationRate - recommendationRatePrev, "%"),
+                Trend(recommendationRate - recommendationRatePrev),
+                "month"),
+            BuildCard("high_priority",
                 highPriority.ToString("N0", PlCulture),
-                FormatChange(highPriorityThisWeek, "w tym tygodniu"),
-                Trend(highPriorityThisWeek))
+                FormatChange(highPriorityThisWeek),
+                Trend(highPriorityThisWeek),
+                "week")
         ];
     }
 
-    private static DashboardStatCardDto BuildCard(string key, string title, string value, string change, string trend) => new()
+    private static DashboardStatCardDto BuildCard(string key, string value, string change, string trend, string? period = null) => new()
     {
         Key = key,
-        Title = title,
         Value = value,
         Change = change,
         Trend = trend,
-        Icon = key
+        Icon = key,
+        Period = period
     };
 
     private static string Trend(double delta) => delta switch
@@ -93,17 +97,17 @@ public class DashboardService
         _ => "neutral"
     };
 
-    private static string FormatChange(int delta, string suffix)
+    private static string FormatChange(int delta)
     {
         var sign = delta >= 0 ? "+" : "";
-        return $"{sign}{delta.ToString("N0", PlCulture)} {suffix}";
+        return $"{sign}{delta.ToString("N0", PlCulture)}";
     }
 
-    private static string FormatChangeDouble(double delta, string suffix, string? suffixUnit = null)
+    private static string FormatChangeDouble(double delta, string? suffixUnit = null)
     {
         var sign = delta >= 0 ? "+" : "";
         var unit = suffixUnit ?? string.Empty;
-        return $"{sign}{delta.ToString("F1", PlCulture)}{unit} {suffix}";
+        return $"{sign}{delta.ToString("F1", PlCulture)}{unit}";
     }
 
     public async Task<List<SentimentTrendPointDto>> GetSentimentTrendAsync(string? period, CancellationToken ct)

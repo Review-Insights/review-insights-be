@@ -9,6 +9,9 @@ namespace ReviewInsights.Api.Features.Products;
 
 public class ProductsService
 {
+    private const int RecentMonthsWindow = 1;
+    private const int MinimumRecentReviewsForTrend = 3;
+
     private readonly AppDbContext _db;
     private readonly ILogger<ProductsService> _logger;
 
@@ -32,6 +35,8 @@ public class ProductsService
 
         var aggregates = await BuildAggregatesQuery(filtered).ToListAsync(ct);
         var namesByProduct = await BuildNamesMapAsync(filtered, ct);
+        var priorityInputs = await BuildPriorityInputsQuery(filtered).ToListAsync(ct);
+        var priorityByProduct = BuildPriorityMap(priorityInputs);
 
         foreach (var product in aggregates)
         {
@@ -41,6 +46,8 @@ public class ProductsService
                 product.DepartmentName = names.DepartmentName;
                 product.DivisionName = names.DivisionName;
             }
+
+            product.Priority = priorityByProduct.GetValueOrDefault(product.ClothingId, Priority.Low);
         }
 
         var ordered = ApplySorting(aggregates, sortBy, SortOrderParser.Parse(sortOrder));
@@ -93,9 +100,18 @@ public class ProductsService
                         : r.OverallSentiment == Sentiment.Positive ? 0.5
                         : r.OverallSentiment == Sentiment.Neutral ? 0.0
                         : r.OverallSentiment == Sentiment.Negative ? -0.5
-                        : -1.0)) ?? 0.0,
-                Priority = g.Max(r => r.Priority) ?? Priority.Low
+                        : -1.0)) ?? 0.0
             });
+    }
+
+    private static IQueryable<ProductPriorityInput> BuildPriorityInputsQuery(IQueryable<Domain.Entities.Review> query)
+    {
+        return query.Select(r => new ProductPriorityInput
+        {
+            ClothingId = r.ClothingId,
+            CreatedAt = r.CreatedAt,
+            Priority = r.Priority
+        });
     }
 
     private static async Task<Dictionary<int, (string? ClassName, string? DepartmentName, string? DivisionName)>>
@@ -174,10 +190,12 @@ public class ProductsService
                 .Select(r => SentimentScore.ToScore(r.OverallSentiment))
                 .DefaultIfEmpty(0.0)
                 .Average(),
-            Priority = reviews.Where(r => r.Priority != null)
-                .Select(r => r.Priority!.Value)
-                .DefaultIfEmpty(Priority.Low)
-                .Max(),
+            Priority = CalculateProductPriority(reviews.Select(r => new ProductPriorityInput
+            {
+                ClothingId = r.ClothingId,
+                CreatedAt = r.CreatedAt,
+                Priority = r.Priority
+            })),
             SentimentDistribution = BuildSentimentDistribution(reviews.Select(r => r.OverallSentiment)),
             RatingDistribution = BuildRatingDistribution(reviews.Select(r => r.Rating)),
             AspectSentiments = BuildAspectAggregates(reviews.SelectMany(r => r.AspectSentiments)),
@@ -278,4 +296,95 @@ public class ProductsService
             })
             .ToList();
     }
+
+    private static Dictionary<int, Priority> BuildPriorityMap(IEnumerable<ProductPriorityInput> reviews)
+    {
+        return reviews
+            .GroupBy(r => r.ClothingId)
+            .ToDictionary(g => g.Key, g => CalculateProductPriority(g));
+    }
+
+    private static Priority CalculateProductPriority(IEnumerable<ProductPriorityInput> reviews)
+    {
+        var monthly = reviews
+            .GroupBy(r => new DateTime(r.CreatedAt.Year, r.CreatedAt.Month, 1, 0, 0, 0, DateTimeKind.Utc))
+            .Select(g => new MonthlyPrioritySnapshot(
+                g.Key,
+                g.Count(),
+                g.Count(x => x.Priority is Priority.High or Priority.Critical),
+                g.Count(x => x.Priority == Priority.Critical),
+                g.Sum(x => ToPriorityWeight(x.Priority))))
+            .OrderBy(x => x.Month)
+            .ToList();
+
+        if (monthly.Count == 0)
+        {
+            return Priority.Low;
+        }
+
+        var recent = monthly.TakeLast(RecentMonthsWindow).ToList();
+        var baseline = monthly.Take(Math.Max(0, monthly.Count - RecentMonthsWindow)).ToList();
+
+        var recentReviewCount = recent.Sum(x => x.TotalReviews);
+        var recentSeverityRate = SafeDivide(recent.Sum(x => x.SeverityWeight), recentReviewCount);
+        var recentHighOrCriticalRate = SafeDivide(recent.Sum(x => x.HighOrCriticalReviews), recentReviewCount);
+        var recentCriticalRate = SafeDivide(recent.Sum(x => x.CriticalReviews), recentReviewCount);
+
+        var baselineReviewCount = baseline.Sum(x => x.TotalReviews);
+        var baselineSeverityRate = SafeDivide(baseline.Sum(x => x.SeverityWeight), baselineReviewCount);
+        var baselineHighOrCriticalRate = SafeDivide(baseline.Sum(x => x.HighOrCriticalReviews), baselineReviewCount);
+        var severityTrend = recentSeverityRate - baselineSeverityRate;
+        var highOrCriticalTrend = recentHighOrCriticalRate - baselineHighOrCriticalRate;
+
+        if (recentReviewCount >= MinimumRecentReviewsForTrend)
+        {
+            if ((recentCriticalRate >= 0.20 && severityTrend >= 0.75) ||
+                (recentHighOrCriticalRate >= 0.35 && highOrCriticalTrend >= 0.20 && severityTrend >= 0.50) ||
+                (baselineReviewCount == 0 && recentCriticalRate >= 0.30 && recentSeverityRate >= 1.75))
+            {
+                return Priority.Critical;
+            }
+
+            if ((recentHighOrCriticalRate >= 0.20 && highOrCriticalTrend >= 0.10 && severityTrend >= 0.25) ||
+                (baselineReviewCount == 0 && recentHighOrCriticalRate >= 0.25 && recentSeverityRate >= 1.25))
+            {
+                return Priority.High;
+            }
+        }
+
+        if (recentSeverityRate >= 1.0 || recentHighOrCriticalRate >= 0.10)
+        {
+            return Priority.Medium;
+        }
+
+        return Priority.Low;
+    }
+
+    private static int ToPriorityWeight(Priority? priority)
+    {
+        return priority switch
+        {
+            Priority.Low => 0,
+            Priority.Medium => 1,
+            Priority.High => 2,
+            Priority.Critical => 3,
+            _ => 0
+        };
+    }
+
+    private static double SafeDivide(int numerator, int denominator) => denominator == 0 ? 0.0 : (double)numerator / denominator;
+
+    private sealed class ProductPriorityInput
+    {
+        public int ClothingId { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public Priority? Priority { get; init; }
+    }
+
+    private sealed record MonthlyPrioritySnapshot(
+        DateTime Month,
+        int TotalReviews,
+        int HighOrCriticalReviews,
+        int CriticalReviews,
+        int SeverityWeight);
 }

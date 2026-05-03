@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using ReviewInsights.Api.Common;
 using ReviewInsights.Api.Data;
+using ReviewInsights.Api.Domain.Enums;
 using ReviewInsights.Api.Features.Reviews.Dtos;
 
 namespace ReviewInsights.Api.Features.Reviews;
@@ -24,7 +25,22 @@ public class ReviewsService
             "Listing reviews: Page={Page}, Limit={Limit}, UploadId={UploadId}, Sentiment={Sentiment}",
             p, l, filters.UploadId, filters.Sentiment);
 
-        var query = ReviewQueryBuilder.Apply(_db.Reviews.AsNoTracking(), filters);
+        IQueryable<Domain.Entities.Review> baseQuery;
+        if (!string.IsNullOrWhiteSpace(filters.Aspect))
+        {
+            var parsedAspect = EnumParser.ParseFromMemberName<AspectKey>(filters.Aspect)
+                               ?? throw new ValidationException($"Invalid aspect '{filters.Aspect}'");
+            var jsonFilter = $"[{{\"Aspect\":{(int)parsedAspect}}}]";
+            baseQuery = _db.Reviews
+                .FromSqlInterpolated($"SELECT * FROM reviews WHERE aspect_sentiments @> {jsonFilter}::jsonb")
+                .AsNoTracking();
+        }
+        else
+        {
+            baseQuery = _db.Reviews.AsNoTracking();
+        }
+
+        var query = ReviewQueryBuilder.Apply(baseQuery, filters);
 
         var total = await query.CountAsync(ct);
 

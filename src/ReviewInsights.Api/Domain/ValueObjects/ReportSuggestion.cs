@@ -9,4 +9,7 @@ public class ReportSuggestion
     public string Reasoning { get; set; } = string.Empty;
     public Priority Priority { get; set; }
     public List<int> RelatedProducts { get; set; } = [];
+    public string ExpectedImpact { get; set; } = string.Empty;
+    public string? TargetSegment { get; set; }
+    public List<ReportEvidence> Evidence { get; set; } = [];
 }

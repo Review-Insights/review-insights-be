@@ -20,6 +20,7 @@ public class WorkerAnalyzeResultsRequest
 
 public class WorkerReportResultRequest
 {
+    public ReportScope Scope { get; set; } = new();
     public ReportSummary Summary { get; set; } = new();
     public List<ReportInsight> Insights { get; set; } = [];
     public List<ReportSuggestion> Suggestions { get; set; } = [];

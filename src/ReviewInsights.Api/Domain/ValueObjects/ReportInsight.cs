@@ -9,4 +9,7 @@ public class ReportInsight
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public Priority Severity { get; set; }
+    public List<int> RelatedProducts { get; set; } = [];
+    public List<ReportEvidence> Evidence { get; set; } = [];
+    public string? TargetSegment { get; set; }
 }

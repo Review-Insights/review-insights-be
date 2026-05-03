@@ -34,6 +34,10 @@ public class PdfReportRenderer
                     col.Spacing(15);
 
                     RenderFilters(col, report.Filters);
+                    if (report.Scope is not null)
+                    {
+                        RenderScope(col, report.Scope);
+                    }
 
                     if (report.Summary is not null)
                     {
@@ -62,6 +66,16 @@ public class PdfReportRenderer
         }).GeneratePdf();
     }
 
+    private static void RenderScope(ColumnDescriptor col, ReportScope scope)
+    {
+        col.Item().Text("Zakres raportu").FontSize(14).SemiBold();
+        col.Item().Column(c =>
+        {
+            c.Item().Text($"Przeanalizowane recenzje: {scope.AnalyzedReviewCount}");
+            c.Item().Text($"Pominiete recenzje: {scope.SkippedReviewCount}");
+        });
+    }
+
     private static void RenderFilters(ColumnDescriptor col, ReportFilters f)
     {
         col.Item().Text("Filtry").FontSize(14).SemiBold();
@@ -83,12 +97,22 @@ public class PdfReportRenderer
         col.Item().Text("Podsumowanie").FontSize(14).SemiBold();
         col.Item().Column(c =>
         {
+            c.Item().Text($"Liczba recenzji: {s.TotalReviews}");
             c.Item().Text($"Srednia ocena: {s.AverageRating:F2} / 5");
             c.Item().Text($"Wskaznik rekomendacji: {s.RecommendationRate:F1}%");
+            c.Item().Text($"Srednie prawdopodobienstwo churn: {s.AverageChurnProbability:F1}%");
             c.Item().PaddingTop(5).Text("Rozklad sentymentu:").SemiBold();
             foreach (var kvp in s.SentimentBreakdown)
             {
                 c.Item().Text($"  {EnumParser.GetEnumMemberValue(kvp.Key)}: {kvp.Value}");
+            }
+            if (s.PriorityBreakdown.Count > 0)
+            {
+                c.Item().PaddingTop(5).Text("Rozklad priorytetow:").SemiBold();
+                foreach (var kvp in s.PriorityBreakdown)
+                {
+                    c.Item().Text($"  {EnumParser.GetEnumMemberValue(kvp.Key)}: {kvp.Value}");
+                }
             }
             if (s.TopChurnCauses.Count > 0)
             {
@@ -96,6 +120,24 @@ public class PdfReportRenderer
                 foreach (var cause in s.TopChurnCauses)
                 {
                     c.Item().Text($"  {EnumParser.GetEnumMemberValue(cause.Cause)}: {cause.Count}");
+                }
+            }
+            if (s.TopProblemProducts.Count > 0)
+            {
+                c.Item().PaddingTop(5).Text("Produkty najwyzszego ryzyka:").SemiBold();
+                foreach (var product in s.TopProblemProducts)
+                {
+                    c.Item().Text(
+                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, churn {product.AverageChurnProbability:F1}%, rekomendacja {product.RecommendationRate:F1}%");
+                }
+            }
+            if (s.TopOpportunityProducts.Count > 0)
+            {
+                c.Item().PaddingTop(5).Text("Produkty z najwieksza szansa:").SemiBold();
+                foreach (var product in s.TopOpportunityProducts)
+                {
+                    c.Item().Text(
+                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, churn {product.AverageChurnProbability:F1}%, rekomendacja {product.RecommendationRate:F1}%");
                 }
             }
         });
@@ -110,7 +152,16 @@ public class PdfReportRenderer
             {
                 c.Item().Text($"[{EnumParser.GetEnumMemberValue(i.Type)}] {i.Title}").SemiBold();
                 c.Item().Text($"Waznosc: {EnumParser.GetEnumMemberValue(i.Severity)}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                if (!string.IsNullOrWhiteSpace(i.TargetSegment))
+                {
+                    c.Item().Text($"Segment: {i.TargetSegment}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                }
                 c.Item().PaddingTop(4).Text(i.Description);
+                if (i.RelatedProducts.Count > 0)
+                {
+                    c.Item().PaddingTop(4).Text($"Powiazane produkty: {string.Join(", ", i.RelatedProducts)}").FontSize(9);
+                }
+                RenderEvidence(c, i.Evidence);
             });
         }
     }
@@ -124,12 +175,38 @@ public class PdfReportRenderer
             {
                 c.Item().Text(s.Action).SemiBold();
                 c.Item().Text($"Priorytet: {EnumParser.GetEnumMemberValue(s.Priority)}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                if (!string.IsNullOrWhiteSpace(s.TargetSegment))
+                {
+                    c.Item().Text($"Segment: {s.TargetSegment}").FontSize(9).FontColor(Colors.Grey.Darken1);
+                }
                 c.Item().PaddingTop(4).Text(s.Reasoning);
+                if (!string.IsNullOrWhiteSpace(s.ExpectedImpact))
+                {
+                    c.Item().PaddingTop(4).Text($"Oczekiwany efekt: {s.ExpectedImpact}").FontSize(9);
+                }
                 if (s.RelatedProducts.Count > 0)
                 {
                     c.Item().PaddingTop(4).Text($"Powiazane produkty: {string.Join(", ", s.RelatedProducts)}").FontSize(9);
                 }
+                RenderEvidence(c, s.Evidence);
             });
+        }
+    }
+
+    private static void RenderEvidence(ColumnDescriptor col, IEnumerable<ReportEvidence> evidence)
+    {
+        var items = evidence.Where(item =>
+            !string.IsNullOrWhiteSpace(item.Label) || !string.IsNullOrWhiteSpace(item.Detail)).ToList();
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        col.Item().PaddingTop(4).Text("Dowody:").SemiBold().FontSize(9);
+        foreach (var item in items)
+        {
+            var prefix = string.IsNullOrWhiteSpace(item.Label) ? "-" : item.Label;
+            col.Item().Text($"  {prefix}: {item.Detail}").FontSize(9);
         }
     }
 }

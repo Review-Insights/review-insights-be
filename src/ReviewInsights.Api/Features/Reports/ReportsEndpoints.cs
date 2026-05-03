@@ -16,6 +16,9 @@ public static class ReportsEndpoints
         group.MapGet("{id:guid}", async (Guid id, ReportsService service, CancellationToken ct) =>
             Results.Ok(await service.GetAsync(id, ct)));
 
+        group.MapPost("generate/preview", async (GenerateReportPayload payload, ReportsService service, CancellationToken ct) =>
+            Results.Ok(await service.PreviewGenerateAsync(payload, ct)));
+
         group.MapPost("generate", async (GenerateReportPayload payload, ReportsService service, CancellationToken ct) =>
         {
             var result = await service.GenerateAsync(payload, ct);

@@ -86,6 +86,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             entity.Property(e => e.Status).HasColumnName("status")
                 .HasConversion<int>().IsRequired();
             entity.Property(e => e.Filters).HasColumnName("filters").HasColumnType("jsonb").IsRequired();
+            entity.Property(e => e.Scope).HasColumnName("scope").HasColumnType("jsonb");
             entity.Property(e => e.GeneratedAt).HasColumnName("generated_at").HasDefaultValueSql("NOW()");
             entity.Property(e => e.CompletedAt).HasColumnName("completed_at");
             entity.Property(e => e.TotalRecords).HasColumnName("total_records");

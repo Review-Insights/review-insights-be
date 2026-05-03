@@ -90,6 +90,7 @@ public class WorkerService
         var report = await _db.Reports.FirstOrDefaultAsync(r => r.Id == reportId, ct)
                      ?? throw new NotFoundException($"Report {reportId} not found");
 
+        report.Scope = request.Scope;
         report.Summary = request.Summary;
         report.Insights = request.Insights ?? [];
         report.Suggestions = request.Suggestions ?? [];

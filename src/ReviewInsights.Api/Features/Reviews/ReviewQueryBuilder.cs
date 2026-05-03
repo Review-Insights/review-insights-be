@@ -13,6 +13,7 @@ public class ReviewFilterParams
     public int? Rating { get; set; }
     public string? Sentiment { get; set; }
     public string? Priority { get; set; }
+    public string? Aspect { get; set; }
     public string? DepartmentName { get; set; }
     public string? DivisionName { get; set; }
     public string? ClassName { get; set; }

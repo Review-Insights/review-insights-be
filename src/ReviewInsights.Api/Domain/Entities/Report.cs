@@ -9,6 +9,7 @@ public class Report
     public string Title { get; set; } = string.Empty;
     public ReportStatus Status { get; set; } = ReportStatus.Generating;
     public ReportFilters Filters { get; set; } = new();
+    public ReportScope? Scope { get; set; }
     public DateTime GeneratedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
     public int TotalRecords { get; set; }

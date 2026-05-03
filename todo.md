@@ -1,9 +1,0 @@
-- Paginacja &limit=5
-- Dane na przestrzeni 30 dni symulacja
-- batche zwiekszyć > 50
-- agent worker wiele procesów na raz
-- i18n churn
-- wyznaczanie priorytetu do refactoru dla produktu - wyznaczanie według miesiaca itp a nie na podstawie ilosci opini
-- raport data od i do
-- poprawienie tworzenie raportu
-- nie dziala tworzenie raportow, sprawdzic kolejke

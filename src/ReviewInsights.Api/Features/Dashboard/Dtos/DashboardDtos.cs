@@ -3,11 +3,11 @@ namespace ReviewInsights.Api.Features.Dashboard.Dtos;
 public class DashboardStatCardDto
 {
     public string Key { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
     public string Change { get; set; } = string.Empty;
     public string Trend { get; set; } = "neutral";
     public string Icon { get; set; } = string.Empty;
+    public string? Period { get; set; }
 }
 
 public class SentimentTrendPointDto

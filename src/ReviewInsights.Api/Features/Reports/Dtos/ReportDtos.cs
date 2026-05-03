@@ -17,6 +17,7 @@ public class ReportListItemDto
 
 public class ReportDetailDto : ReportListItemDto
 {
+    public ReportScope? Scope { get; set; }
     public ReportSummary? Summary { get; set; }
     public List<ReportInsight> Insights { get; set; } = [];
     public List<ReportSuggestion> Suggestions { get; set; } = [];
@@ -27,4 +28,14 @@ public class GenerateReportPayload
 {
     public string Title { get; set; } = string.Empty;
     public ReportFilters Filters { get; set; } = new();
+}
+
+public class GenerateReportPreviewDto
+{
+    public int TotalMatchingRecords { get; set; }
+    public int ProcessedRecords { get; set; }
+    public int SkippedRecords { get; set; }
+    public int MaxRecordsLimit { get; set; }
+    public bool CanGenerate { get; set; }
+    public string? Message { get; set; }
 }
