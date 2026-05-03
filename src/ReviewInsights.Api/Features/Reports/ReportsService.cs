@@ -88,11 +88,27 @@ public class ReportsService
             payload.Filters.DivisionName,
             payload.Filters.ClothingId);
 
-        var query = ApplyFilters(_db.Reviews.AsNoTracking(), payload.Filters);
+        var baseQuery = ApplyFilters(_db.Reviews.AsNoTracking(), payload.Filters);
+
+        // Only fully-analyzed reviews can be sent to the worker — its AnalyzedReview
+        // pydantic model treats overallSentiment/churnProbability/priority as required.
+        // Including in-flight reviews would cause "Field required" validation errors.
+        var query = baseQuery.Where(r =>
+            r.AnalyzedAt != null
+            && r.OverallSentiment != null
+            && r.ChurnProbability != null
+            && r.Priority != null);
         var totalRecords = await query.CountAsync(ct);
         if (totalRecords == 0)
         {
             _logger.LogWarning("Report generation aborted: no reviews match the provided filters");
+            var unfilteredCount = await baseQuery.CountAsync(ct);
+            if (unfilteredCount > 0)
+            {
+                throw new UnprocessableEntityException(
+                    "Reviews matching the filters have not been analyzed yet. Please wait for analysis to complete and try again."
+                );
+            }
             throw new UnprocessableEntityException("No reviews match the provided filters");
         }
 

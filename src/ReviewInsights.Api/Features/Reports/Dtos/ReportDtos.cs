@@ -20,6 +20,7 @@ public class ReportDetailDto : ReportListItemDto
     public ReportSummary? Summary { get; set; }
     public List<ReportInsight> Insights { get; set; } = [];
     public List<ReportSuggestion> Suggestions { get; set; } = [];
+    public string? ErrorMessage { get; set; }
 }
 
 public class GenerateReportPayload

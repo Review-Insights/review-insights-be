@@ -12,7 +12,10 @@ public class RabbitMqService : IQueueService, IHostedService
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
-        Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
+        Converters =
+        {
+            new System.Text.Json.Serialization.JsonStringEnumConverter(JsonNamingPolicy.SnakeCaseLower)
+        }
     };
 
     private readonly RabbitMqSettings _settings;
