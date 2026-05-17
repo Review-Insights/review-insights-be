@@ -57,6 +57,8 @@ public class WorkerService
             review.ChurnProbability = result.ChurnProbability;
             review.ChurnCauses = result.ChurnCauses ?? [];
             review.Priority = result.Priority;
+            review.PriorityRule = result.PriorityRule;
+            review.PriorityReason = result.PriorityReason;
             review.AnalyzedAt = now;
             patchedThisCall++;
         }

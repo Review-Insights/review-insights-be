@@ -58,6 +58,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasColumnType("jsonb");
             entity.Property(e => e.Priority).HasColumnName("priority")
                 .HasConversion<int>();
+            entity.Property(e => e.PriorityRule).HasColumnName("priority_rule").HasMaxLength(100);
+            entity.Property(e => e.PriorityReason).HasColumnName("priority_reason");
 
             entity.Property(e => e.UploadId).HasColumnName("upload_id");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("NOW()");

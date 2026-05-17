@@ -8,6 +8,7 @@ using ReviewInsights.Api.Common;
 using ReviewInsights.Api.Configuration;
 using ReviewInsights.Api.Data;
 using ReviewInsights.Api.Features.Dashboard;
+using ReviewInsights.Api.Features.History;
 using ReviewInsights.Api.Features.Products;
 using ReviewInsights.Api.Features.Reports;
 using ReviewInsights.Api.Features.Reviews;
@@ -85,6 +86,7 @@ try
     builder.Services.AddScoped<ReportsService>();
     builder.Services.AddScoped<DashboardService>();
     builder.Services.AddScoped<WorkerService>();
+    builder.Services.AddScoped<HistoryService>();
 
     builder.Services.AddHealthChecks()
         .AddNpgSql(connectionString);
@@ -179,14 +181,15 @@ try
     app.MapProductsEndpoints();
     app.MapReportsEndpoints();
     app.MapUploadsEndpoints();
+    app.MapHistoryEndpoints();
 
     using (var scope = app.Services.CreateScope())
     {
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        logger.LogInformation("Applying database schema (EnsureCreated)");
-        await db.Database.EnsureCreatedAsync();
+        logger.LogInformation("Applying database migrations");
+        await db.Database.MigrateAsync();
         logger.LogInformation("Database schema ready");
 
         var storage = scope.ServiceProvider.GetRequiredService<IFileStorageService>();

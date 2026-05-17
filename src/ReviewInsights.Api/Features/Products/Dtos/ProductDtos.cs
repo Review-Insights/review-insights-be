@@ -13,6 +13,8 @@ public class ProductDto
     public double RecommendationRate { get; set; }
     public double AverageSentiment { get; set; }
     public Priority Priority { get; set; } = Priority.Low;
+    public string? PriorityRule { get; set; }
+    public string? PriorityReason { get; set; }
 }
 
 public class ProductDetailDto : ProductDto
