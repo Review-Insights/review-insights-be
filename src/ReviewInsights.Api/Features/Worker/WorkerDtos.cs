@@ -11,6 +11,8 @@ public class WorkerReviewResultDto
     public int ChurnProbability { get; set; }
     public List<ChurnCause> ChurnCauses { get; set; } = [];
     public Priority Priority { get; set; }
+    public string? PriorityRule { get; set; }
+    public string? PriorityReason { get; set; }
 }
 
 public class WorkerAnalyzeResultsRequest
