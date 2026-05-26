@@ -1,288 +1,245 @@
-# review-insights-be
+# Review Insights Backend
 
-Backend API dla systemu analizy opinii klientow e-commerce, ktory wykorzystuje AI do wykrywania sentymentu, predykcji odejscia i generowania raportow z rekomendacjami.
+Backend przyjmuje pliki CSV i JSON z opiniami, zapisuje je w PostgreSQL i MinIO, zleca analize workerowi przez RabbitMQ, a potem udostepnia dane do dashboardu, widokow produktowych i raportow PDF.
 
-Zbudowany w .NET 10 Minimal API z PostgreSQL, MinIO i RabbitMQ.
+To repo zawiera jedno API w `src/ReviewInsights.Api`.
 
----
+## Stack
 
-## Stack technologiczny
-
-| Komponent | Technologia |
-|-----------|-------------|
+| Obszar | Technologia |
+|--------|-------------|
 | API | .NET 10 Minimal API |
-| Baza danych | PostgreSQL 17 + EF Core 10 (JSONB dla pol AI) |
-| File storage | MinIO (S3-compatible, self-hosted) |
-| Kolejka | RabbitMQ 4 (dwie kolejki: analiza recenzji + generacja raportu) |
-| PDF | QuestPDF (Community License) |
-| Dokumentacja API | Scalar (dostepna w trybie Development) |
-| Konteneryzacja | Docker + Docker Compose |
+| Baza danych | PostgreSQL 17 + EF Core 10 |
+| Storage plikow | MinIO |
+| Kolejki | RabbitMQ 4 (`review-insights.exchange`) |
+| PDF | QuestPDF |
+| Dokumentacja API | OpenAPI + Scalar w trybie Development |
+| Kontenery | Docker Compose |
 
----
+W RabbitMQ backend korzysta z jednego exchange'a, dwoch kolejek zadan i czterech kolejek wynikowych:
 
-## Wymagania
+- zadania do workera: `review-insights.analyze.reviews`, `review-insights.generate.report`
+- wyniki i bledy odbierane przez backend: `review-insights.uploads.results`, `review-insights.uploads.errors`, `review-insights.reports.result`, `review-insights.reports.errors`
 
-- **Docker Desktop** (z Docker Compose)
-- **.NET 10 SDK** (tylko do lokalnego developmentu)
+## Uruchomienie
 
----
+### Wariant dockerowy
 
-## Pierwsze uruchomienie (setup)
-
-Projekt dziala w trybie **tylko `.env`**. `docker-compose.override.yml` nie nadpisuje juz hasel.
-
-1. Skopiuj szablon:
+1. Skopiuj `.env.example` do `.env`.
+2. Uzupelnij hasla i nazwy kontenerow.
+3. Uruchom:
 
 ```bash
-cp .env.example .env
+docker compose up --build -d
 ```
 
-2. Ustaw w `.env` swoje dane dla Postgresa/MinIO/RabbitMQ.
+Po starcie:
 
-Plik `.env` jest w `.gitignore` i nie trafi na GitHub.
+| Serwis | URL |
+|--------|-----|
+| API | http://localhost:8080 |
+| Scalar (Development) | http://localhost:8080/scalar |
+| OpenAPI JSON | http://localhost:8080/openapi/v1.json |
+| Health | http://localhost:8080/health |
+| MinIO Console | http://localhost:9001 |
+| RabbitMQ Management | http://localhost:15672 |
 
-### Lokalny `dotnet run`
+### API lokalnie, infrastruktura w Dockerze
 
-Skopiuj szablon i uzupelnij wartosci:
+1. Uruchom Postgresa, MinIO i RabbitMQ:
+
+```bash
+docker compose up -d postgres minio rabbitmq
+```
+
+2. Skopiuj szablon konfiguracji developerskiej:
 
 ```bash
 cp src/ReviewInsights.Api/appsettings.Development.Example.json src/ReviewInsights.Api/appsettings.Development.json
 ```
 
----
-
-## Uruchomienie
-
-### Wszystko w Dockerze (zalecane)
+3. Uzupelnij wartosci lokalne i uruchom API:
 
 ```bash
-docker compose up --build -d
+dotnet run --project src/ReviewInsights.Api
 ```
 
-| Serwis | URL |
-|--------|-----|
-| API | http://localhost:8080 |
-| Dokumentacja API (Scalar) | http://localhost:8080/scalar |
-| OpenAPI JSON | http://localhost:8080/openapi/v1.json |
-| MinIO Console | http://localhost:9001 |
-| RabbitMQ Management | http://localhost:15672 |
-| Health check | http://localhost:8080/health |
+Przy `dotnet run` API nasluchuje domyslnie na `http://localhost:5030`.
 
-### API lokalnie + infrastruktura w Dockerze
+Jesli frontend ma laczyc sie z lokalnym backendem uruchomionym poza Dockerem, ustaw w `debil-fe` `NEXT_PUBLIC_API_BASE_URL=http://localhost:5030`.
 
-```bash
-docker compose up -d postgres minio rabbitmq
-cd src/ReviewInsights.Api
-dotnet run
-```
+## Sekrety i konfiguracja
 
-API bedzie dostepne pod http://localhost:5030.
+W repo powinny zostac tylko szablony i konfiguracja niesekretna:
 
----
+| Plik | Rola |
+|------|------|
+| `src/ReviewInsights.Api/appsettings.json` | bazowa konfiguracja aplikacji |
+| `.env.example` | szablon dla `docker compose` |
+| `src/ReviewInsights.Api/appsettings.Development.Example.json` | szablon lokalnej konfiguracji dla `dotnet run` |
 
-## Resetowanie srodowiska
+Lokalne sekrety trzymaj w:
 
-```bash
-docker compose down -v
-docker compose up --build -d
-```
+- `.env`
+- `src/ReviewInsights.Api/appsettings.Development.json`
 
-Flaga `-v` usuwa wszystkie volumy (Postgres, MinIO, RabbitMQ).
+Te pliki nie powinny byc publikowane. Jesli repo juz je sledzi, przed wypchnieciem zmian usun je z gita i zostaw tylko kopie lokalne.
 
----
+## Dane i migracje
 
-## Schemat bazy
+Schemat bazy jest aktualizowany przy starcie aplikacji przez `db.Database.MigrateAsync()`.
 
-Schemat bazy jest aktualizowany przy starcie aplikacji przez EF Core migrations (`db.Database.MigrateAsync()`).
+Glowne tabele:
 
-> UWAGA: po zmianie modelu nalezy dodac nowa migracje. `docker compose down -v` (albo reczne `DROP DATABASE`) jest potrzebne tylko wtedy, gdy chcesz zaczac od czystego srodowiska, a nie do standardowej ewolucji schematu.
+- `file_uploads` - metadane uploadu i postep analizy
+- `reviews` - surowe dane opinii plus pola AI (`overall_sentiment`, `aspect_sentiments`, `priority`, `priority_rule`, `priority_reason`, `analyzed_at`)
+- `reports` - wygenerowane raporty (`filters`, `scope`, `summary`, `insights`, `suggestions`)
 
-Tabele:
+Tabela `products` nie istnieje. Lista i detal produktu sa liczone na biezaco z `reviews` po `clothing_id`.
 
-- `file_uploads` - rekord na kazdy upload (status, total/analyzed records, storage key)
-- `reviews` - oryginalne kolumny z datasetu + pola AI (`overall_sentiment`, `aspect_sentiments` jsonb, `priority`, `priority_rule`, `priority_reason`, `analyzed_at`)
-- `reports` - raporty AI (`filters`, `scope`, `summary`, `insights`, `suggestions`; wszystko JSONB)
+## Integracja z workerem
 
-Indeksy: `reviews(upload_id)`, `reviews(clothing_id)`, `reviews(priority)`, `reviews(overall_sentiment)`, `reviews(created_at)`, `reviews(department_name)`, `reviews(rating)`.
+Backend nie wystawia publicznych endpointow callbackowych typu `/api/worker/*`.
 
-Tabela `products` celowo nie istnieje - listy/agregaty produktowe sa liczone on-the-fly z `reviews` po `clothing_id`.
+Przeplyw jest taki:
 
----
+1. backend publikuje zadania do RabbitMQ,
+2. worker pobiera zadania i publikuje wynik lub blad z powrotem do RabbitMQ,
+3. `WorkerResultsConsumer` odbiera wynik i zapisuje go do bazy.
+
+Dodatkowo worker wykonuje synchroniczne wywolanie:
+
+- `GET /history/snapshot?clothingId=...&className=...&divisionName=...`
+
+To wywolanie sluzy do pobrania historycznych statystyk potrzebnych przy liczeniu priorytetu recenzji.
+
+## Format wiadomosci RabbitMQ
+
+### `review-insights.analyze.reviews`
+
+Backend publikuje wiadomosc z `uploadId` i lista recenzji do analizy. Kazda recenzja zawiera:
+
+- `id`
+- `clothingId`
+- `age`
+- `title`
+- `reviewText`
+- `rating`
+- `recommendedInd`
+- `divisionName`
+- `departmentName`
+- `className`
+
+Recenzje sa dzielone na batche wedlug `RabbitMQ:BatchSize` (domyslnie `200`).
+
+### `review-insights.generate.report`
+
+Backend publikuje:
+
+- `reportId`
+- `filters`
+- liste przeanalizowanych recenzji z polami AI:
+  - `overallSentiment`
+  - `aspectSentiments`
+  - `priority`
+  - `createdAt`
+  - `analyzedAt`
+
+Liczba rekordow w jednej wiadomosci jest ograniczona przez `ReportLimits:MaxReviewsPerReport` (domyslnie `10000`).
 
 ## Endpointy
+
+### Operacyjne
+
+| Metoda | Endpoint | Uwagi |
+|--------|----------|-------|
+| GET | `/health` | healthcheck aplikacji i polaczenia z PostgreSQL |
+| GET | `/openapi/v1.json` | specyfikacja OpenAPI |
+| GET | `/scalar` | interaktywny podglad API w trybie Development |
 
 ### Dashboard
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/dashboard/stats` | 4 karty (total reviews, average rating, recommendation rate, high priority) |
-| GET | `/dashboard/sentiment-trend?period=7d|30d|90d|all` | Trend pozytywny/neutralny/negatywny w czasie |
-| GET | `/dashboard/rating-distribution` | Histogram ocen 1-5 |
-| GET | `/dashboard/department-stats` | Agregaty per departament |
+| GET | `/dashboard/stats` | karty z podstawowymi metrykami |
+| GET | `/dashboard/sentiment-trend?period=7d|30d|90d|all` | trend sentymentu w czasie |
+| GET | `/dashboard/rating-distribution` | rozklad ocen 1-5 |
+| GET | `/dashboard/department-stats` | agregaty per departament |
 
 ### Reviews
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/reviews` | Lista z paginacja, sortowaniem i 16 filtrami (`search`, `rating`, `sentiment`, `priority` (CSV), `departmentName`, `divisionName`, `className`, `recommended`, `ageMin/Max`, `dateFrom/To`, `uploadId`, `clothingId`, ...) |
-| GET | `/reviews/{id}` | Pelne pola (lacznie z polami AI) |
+| GET | `/reviews` | lista opinii z filtrami i paginacja |
+| GET | `/reviews/{id}` | detal opinii |
 
 ### Products
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/products` | Agregaty po `clothing_id` (paginacja, sort, filtry) |
-| GET | `/products/{clothingId}` | Detal: dystrybucja sentymentu/ocen, aspekty, trendy miesieczne |
-| GET | `/products/{clothingId}/reviews` | Recenzje dla produktu (reuse Reviews z dolaczonym `clothingId`) |
-| GET | `/products/{clothingId}/trends` | Trendy miesieczne (rating, sentiment, count) |
-| GET | `/products/{clothingId}/aspects` | Agregaty aspektow (material, sizing, fit, color, price) |
+| GET | `/products` | lista produktow liczona z `reviews` |
+| GET | `/products/{clothingId}` | detal produktu |
+| GET | `/products/{clothingId}/reviews` | recenzje dla jednego produktu |
+| GET | `/products/{clothingId}/trends` | trendy miesieczne |
+| GET | `/products/{clothingId}/aspects` | agregaty aspektow |
 
-Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`. Backend stosuje recency-weighted priorytety recenzji, Wilson lower bound dla malych probek, prog "stale" po 365 dniach oraz porownanie do baseline'u klasy produktu.
+Backend liczy priorytet produktu na podstawie priorytetow recenzji z uwzglednieniem czasu, progu stale i porownania do baseline'u klasy produktu. Szczegoly sa w `docs/product-priority.md`.
 
 ### Reports
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/reports` | Lista historycznych raportow |
-| GET | `/reports/{id}` | Detal (summary, insights, suggestions) |
-| POST | `/reports/generate/preview` | Podglad liczby rekordow, limitu i informacji, czy raport moze zostac wygenerowany |
-| POST | `/reports/generate` | Tworzy raport (status=`generating`) i wysyla do AI workera |
-| DELETE | `/reports/{id}` | Usun raport |
-| GET | `/reports/{id}/pdf` | PDF wygenerowany przez QuestPDF (tylko dla `completed`) |
+| GET | `/reports` | lista raportow |
+| GET | `/reports/{id}` | detal raportu |
+| POST | `/reports/generate/preview` | wstepna walidacja i liczba rekordow do raportu |
+| POST | `/reports/generate` | utworzenie raportu i wyslanie zadania do workera |
+| DELETE | `/reports/{id}` | usuniecie raportu |
+| GET | `/reports/{id}/pdf` | PDF dla raportu w statusie `completed` |
 
 ### Uploads
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/uploads` | Lista uploadow (paginacja, filtr `status`) |
-| GET | `/uploads/{id}` | Detal pojedynczego uploadu |
-| POST | `/uploads` | Multipart `file` (CSV/JSON, max 50 MB). Parsuje, zapisuje do MinIO, tworzy `Review` rekordy, publikuje do RabbitMQ. |
-| DELETE | `/uploads/{id}` | Cascade delete: reviews + upload + blob (transakcja) |
+| GET | `/uploads` | lista uploadow |
+| GET | `/uploads/{id}` | detal pojedynczego uploadu |
+| POST | `/uploads` | przyjecie pliku CSV lub JSON |
+| DELETE | `/uploads/{id}` | usuniecie uploadu, powiazanych recenzji i pliku w storage |
 
 ### History
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| GET | `/history/snapshot?clothingId=...&className=...&divisionName=...` | Snapshot historyczny dla produktu, klasy i segmentu |
-
-### Worker integration
-
-Backend nie wystawia publicznych endpointow callbackowych dla workera. Wyniki i bledy sa odbierane przez `WorkerResultsConsumer` z kolejek RabbitMQ:
-
-- `review-insights.uploads.results`
-- `review-insights.uploads.errors`
-- `review-insights.reports.result`
-- `review-insights.reports.errors`
-
----
-
-## Format wiadomosci RabbitMQ
-
-### Analiza recenzji (`review-insights.analyze.reviews`)
-
-```json
-{
-  "taskType": "analyze_reviews",
-  "uploadId": "uuid",
-  "reviews": [
-    {
-      "id": "uuid",
-      "clothingId": 1234,
-      "age": 35,
-      "title": "...",
-      "reviewText": "...",
-      "rating": 5,
-      "recommendedInd": true,
-      "divisionName": "...",
-      "departmentName": "...",
-      "className": "..."
-    }
-  ]
-}
-```
-
-Backend dzieli recenzje na batche o rozmiarze `RabbitMQ:BatchSize` (domyslnie 200).
-
-### Generacja raportu (`review-insights.generate.report`)
-
-```json
-{
-  "taskType": "generate_report",
-  "reportId": "uuid",
-  "filters": { ... },
-  "reviews": [ /* AnalyzedReviewPayload (z polami AI) */ ]
-}
-```
-
-Maksymalnie `ReportLimits:MaxReviewsPerReport` (domyslnie 10000) rekordow w jednej wiadomosci.
-
-### Wyniki workera
-
-Wyniki analizy uploadow i raportow wracaja przez kolejki wynikowe/bledow skonfigurowane w sekcji `RabbitMQ`, a nie przez publiczne endpointy HTTP.
-
----
-
-## Architektura
-
-```
-Frontend
-   |  HTTP
-   v
-review-insights-be  (port 8080)
-   +-- PostgreSQL  (port 5432)  -- file_uploads, reviews, reports
-   +-- MinIO       (port 9000)  -- pliki CSV/JSON
-   +-- RabbitMQ    (port 5672)  -- kolejki zadan i wynikow dla AI workera
-                                    -> analyze.reviews
-                                    -> generate.report
-                                    <- uploads.results / uploads.errors
-                                    <- reports.result / reports.errors
-AI Worker (Python/LangChain) -- poza tym repo
-```
-
----
-
-## Konfiguracja i sekrety
-
-| Warstwa | Plik | W git? | Zawiera |
-|---------|------|--------|---------|
-| Bazowa | `src/ReviewInsights.Api/appsettings.json` | Tak | Struktura konfiguracji, niesekretne wartosci (porty, nazwy kolejek, limity) |
-| Development | `src/ReviewInsights.Api/appsettings.Development.json` | Nie | Hasla do lokalnych serwisow |
-| Docker | `.env` | Nie | Hasla dla `docker compose` |
-| Szablony | `.env.example`, `appsettings.Development.Example.json` | Tak | Szablony do skopiowania po klonie |
-
----
+| GET | `/history/snapshot?clothingId=...&className=...&divisionName=...` | historyczne metryki dla produktu, klasy i segmentu |
 
 ## Struktura projektu
 
 ```
-review-insights-be/
+debil-be/
 +-- compose.yaml
-+-- docker-compose.override.yml
 +-- .env.example
-+-- ReviewInsights.slnx
 +-- README.md
-+-- TESTING.md
++-- docs/
+|   +-- product-priority.md
+|   +-- TESTING.md
 +-- src/
     +-- ReviewInsights.Api/
         +-- Program.cs
         +-- ReviewInsights.Api.csproj
-        +-- Dockerfile
         +-- appsettings.json
-        +-- Common/                  (PaginatedResponse, EnumParser, ErrorResponse, ...)
-        +-- Configuration/           (MinioSettings, RabbitMqSettings, ReportLimits)
-        +-- Data/AppDbContext.cs
+        +-- Data/
         +-- Domain/
-        |   +-- Enums/               (Sentiment, Priority, AspectKey, UploadStatus, ReportStatus, InsightType)
-        |   +-- Entities/            (FileUpload, Review, Report)
-        |   +-- ValueObjects/        (AspectSentiment, ReportFilters, ReportScope, ReportSummary, ReportInsight, ReportSuggestion)
         +-- Features/
         |   +-- Dashboard/
         |   +-- History/
-        |   +-- Reviews/
         |   +-- Products/
-        |   +-- Reports/             (zawiera PdfReportRenderer)
-        |   +-- Uploads/             (zawiera CsvJsonReviewParser)
-        |   +-- Worker/              (serwis przetwarzania wynikow workera)
-        +-- Infrastructure/          (MinioFileStorageService, RabbitMqService)
-        +-- Messaging/               (AnalyzeReviewsMessage, GenerateReportMessage)
+        |   +-- Reports/
+        |   +-- Reviews/
+        |   +-- Uploads/
+        |   +-- Worker/          # zapis wyniku workera do bazy
+        +-- Infrastructure/
+        |   +-- MinioFileStorageService.cs
+        |   +-- RabbitMqService.cs
+        |   +-- WorkerResultsConsumer.cs
+        +-- Messaging/
+        +-- Migrations/
 ```
