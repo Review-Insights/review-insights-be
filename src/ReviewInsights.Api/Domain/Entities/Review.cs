@@ -19,8 +19,6 @@ public class Review
 
     public Sentiment? OverallSentiment { get; set; }
     public List<AspectSentiment> AspectSentiments { get; set; } = [];
-    public int? ChurnProbability { get; set; }
-    public List<ChurnCause> ChurnCauses { get; set; } = [];
     public Priority? Priority { get; set; }
     public string? PriorityRule { get; set; }
     public string? PriorityReason { get; set; }

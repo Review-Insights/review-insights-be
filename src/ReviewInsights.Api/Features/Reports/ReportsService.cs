@@ -142,8 +142,6 @@ public class ReportsService
                     ClassName = r.ClassName,
                     OverallSentiment = r.OverallSentiment,
                     AspectSentiments = r.AspectSentiments,
-                    ChurnProbability = r.ChurnProbability,
-                    ChurnCauses = r.ChurnCauses,
                     Priority = r.Priority,
                     CreatedAt = r.CreatedAt,
                     AnalyzedAt = r.AnalyzedAt
@@ -312,7 +310,6 @@ public class ReportsService
         return query.Where(r =>
             r.AnalyzedAt != null
             && r.OverallSentiment != null
-            && r.ChurnProbability != null
             && r.Priority != null);
     }
 

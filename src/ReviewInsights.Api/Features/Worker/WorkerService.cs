@@ -54,8 +54,6 @@ public class WorkerService
             }
             review.OverallSentiment = result.OverallSentiment;
             review.AspectSentiments = result.AspectSentiments ?? [];
-            review.ChurnProbability = result.ChurnProbability;
-            review.ChurnCauses = result.ChurnCauses ?? [];
             review.Priority = result.Priority;
             review.PriorityRule = result.PriorityRule;
             review.PriorityReason = result.PriorityReason;

@@ -93,8 +93,6 @@ public class ReviewsService
             ClassName = r.ClassName,
             OverallSentiment = r.OverallSentiment,
             AspectSentiments = r.AspectSentiments,
-            ChurnProbability = r.ChurnProbability ?? 0,
-            ChurnCauses = r.ChurnCauses,
             Priority = r.Priority,
             UploadId = r.UploadId,
             CreatedAt = r.CreatedAt,

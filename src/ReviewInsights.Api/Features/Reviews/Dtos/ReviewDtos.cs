@@ -34,8 +34,6 @@ public class ReviewDto
     public string? ClassName { get; set; }
     public Sentiment? OverallSentiment { get; set; }
     public List<AspectSentiment> AspectSentiments { get; set; } = [];
-    public int ChurnProbability { get; set; }
-    public List<ChurnCause> ChurnCauses { get; set; } = [];
     public Priority? Priority { get; set; }
     public Guid UploadId { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -10,7 +10,6 @@ public class HistoryScopeParams
 public class HistorySectionDto
 {
     public Dictionary<string, Dictionary<int, int>> AspectCounts { get; set; } = new();
-    public Dictionary<string, Dictionary<int, int>> CauseCounts { get; set; } = new();
     public Dictionary<int, int> VeryNegativeCounts { get; set; } = new();
     public Dictionary<int, double> RecommendationRate { get; set; } = new();
     public Dictionary<int, double> NegativeSentimentRate { get; set; } = new();

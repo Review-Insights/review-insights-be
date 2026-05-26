@@ -13,8 +13,6 @@ public class HistoryService
 
     private static readonly (AspectKey Value, string Key)[] AspectKeys =
         Enum.GetValues<AspectKey>().Select(a => (a, EnumParser.GetEnumMemberValue(a))).ToArray();
-    private static readonly (ChurnCause Value, string Key)[] CauseKeys =
-        Enum.GetValues<ChurnCause>().Select(c => (c, EnumParser.GetEnumMemberValue(c))).ToArray();
 
     private readonly AppDbContext _db;
 
@@ -55,7 +53,7 @@ public class HistoryService
             .Where(r => r.CreatedAt >= since)
             .Select(r => new ReviewRow(
                 r.CreatedAt, r.OverallSentiment, r.RecommendedInd,
-                r.PositiveFeedbackCount, r.AspectSentiments, r.ChurnCauses))
+                r.PositiveFeedbackCount, r.AspectSentiments))
             .ToListAsync(ct);
 
         if (rows.Count == 0) return new HistorySectionDto();
@@ -94,11 +92,6 @@ public class HistoryService
             if (n > 0) GetOrAdd(section.AspectCounts, key)[days] = n;
         }
 
-        foreach (var (cause, key) in CauseKeys)
-        {
-            var n = win.Sum(r => r.ChurnCauses.Count(c => c == cause));
-            if (n > 0) GetOrAdd(section.CauseCounts, key)[days] = n;
-        }
     }
 
     private static Dictionary<int, int> GetOrAdd(
@@ -117,6 +110,5 @@ public class HistoryService
         Sentiment? OverallSentiment,
         bool RecommendedInd,
         int PositiveFeedbackCount,
-        List<AspectSentiment> AspectSentiments,
-        List<ChurnCause> ChurnCauses);
+        List<AspectSentiment> AspectSentiments);
 }

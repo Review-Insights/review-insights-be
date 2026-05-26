@@ -53,9 +53,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasConversion<int>();
             entity.Property(e => e.AspectSentiments).HasColumnName("aspect_sentiments")
                 .HasColumnType("jsonb");
-            entity.Property(e => e.ChurnProbability).HasColumnName("churn_probability");
-            entity.Property(e => e.ChurnCauses).HasColumnName("churn_causes")
-                .HasColumnType("jsonb");
             entity.Property(e => e.Priority).HasColumnName("priority")
                 .HasConversion<int>();
             entity.Property(e => e.PriorityRule).HasColumnName("priority_rule").HasMaxLength(100);

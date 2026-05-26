@@ -100,7 +100,6 @@ public class PdfReportRenderer
             c.Item().Text($"Liczba recenzji: {s.TotalReviews}");
             c.Item().Text($"Srednia ocena: {s.AverageRating:F2} / 5");
             c.Item().Text($"Wskaznik rekomendacji: {s.RecommendationRate:F1}%");
-            c.Item().Text($"Srednie prawdopodobienstwo churn: {s.AverageChurnProbability:F1}%");
             c.Item().PaddingTop(5).Text("Rozklad sentymentu:").SemiBold();
             foreach (var kvp in s.SentimentBreakdown)
             {
@@ -114,21 +113,13 @@ public class PdfReportRenderer
                     c.Item().Text($"  {EnumParser.GetEnumMemberValue(kvp.Key)}: {kvp.Value}");
                 }
             }
-            if (s.TopChurnCauses.Count > 0)
-            {
-                c.Item().PaddingTop(5).Text("Najczestsze przyczyny churn:").SemiBold();
-                foreach (var cause in s.TopChurnCauses)
-                {
-                    c.Item().Text($"  {EnumParser.GetEnumMemberValue(cause.Cause)}: {cause.Count}");
-                }
-            }
             if (s.TopProblemProducts.Count > 0)
             {
                 c.Item().PaddingTop(5).Text("Produkty najwyzszego ryzyka:").SemiBold();
                 foreach (var product in s.TopProblemProducts)
                 {
                     c.Item().Text(
-                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, churn {product.AverageChurnProbability:F1}%, rekomendacja {product.RecommendationRate:F1}%");
+                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, rekomendacja {product.RecommendationRate:F1}%");
                 }
             }
             if (s.TopOpportunityProducts.Count > 0)
@@ -137,7 +128,7 @@ public class PdfReportRenderer
                 foreach (var product in s.TopOpportunityProducts)
                 {
                     c.Item().Text(
-                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, churn {product.AverageChurnProbability:F1}%, rekomendacja {product.RecommendationRate:F1}%");
+                        $"  #{product.ClothingId}: ocena {product.AverageRating:F2}, rekomendacja {product.RecommendationRate:F1}%");
                 }
             }
         });
