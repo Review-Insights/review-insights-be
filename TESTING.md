@@ -3,6 +3,7 @@
 API musi byc uruchomione (np. `docker compose up -d`).
 Projekt korzysta z konfiguracji **tylko z `.env`** - przed pierwszym startem wykonaj `cp .env.example .env` i uzupelnij hasla.
 W trybie Development dostepna jest tez dokumentacja: http://localhost:8080/scalar.
+Wyniki workera nie sa juz wystawiane przez publiczne endpointy HTTP - backend odbiera je z kolejek RabbitMQ przez `WorkerResultsConsumer`.
 
 ---
 
@@ -31,23 +32,22 @@ $uploadId = $upload.id
 # Lista uploadow
 Invoke-RestMethod -Uri http://localhost:8080/uploads
 
+# Detal uploadu
+Invoke-RestMethod -Uri "http://localhost:8080/uploads/$uploadId"
+
 # Lista recenzji z filtrami
 Invoke-RestMethod -Uri "http://localhost:8080/reviews?page=1&limit=20&priority=high,critical&sortBy=createdAt&sortOrder=desc"
 
-# Symulacja callbacku AI workera
-$body = @{
-  results = @(
-    @{
-      reviewId = "<UUID-recenzji>"
-      overallSentiment = "positive"
-      aspectSentiments = @(@{ aspect = "fit"; sentiment = "positive"; confidence = 0.92 })
-      churnProbability = 12
-      churnCauses = @()
-      priority = "low"
-    }
-  )
-} | ConvertTo-Json -Depth 8
-Invoke-RestMethod -Uri "http://localhost:8080/api/worker/uploads/$uploadId/results" -Method Post -Body $body -ContentType "application/json"
+# Preview generacji raportu
+$reportPreviewBody = @{
+  title = "Raport Q1 2026 - Tops"
+  filters = @{
+    departmentName = "Tops"
+    minRating = 1
+    maxRating = 5
+  }
+} | ConvertTo-Json -Depth 4
+Invoke-RestMethod -Uri http://localhost:8080/reports/generate/preview -Method Post -Body $reportPreviewBody -ContentType "application/json"
 
 # Generacja raportu
 $reportBody = @{
@@ -59,6 +59,9 @@ $reportBody = @{
   }
 } | ConvertTo-Json -Depth 4
 Invoke-RestMethod -Uri http://localhost:8080/reports/generate -Method Post -Body $reportBody -ContentType "application/json"
+
+# Detal raportu
+Invoke-RestMethod -Uri "http://localhost:8080/reports/<UUID>"
 
 # Pobranie PDF
 Invoke-WebRequest -Uri "http://localhost:8080/reports/<UUID>/pdf" -OutFile raport.pdf
@@ -141,6 +144,23 @@ curl -s "http://localhost:8080/products/1234/aspects"
 
 ### 5.1 Generacja
 
+Preview:
+
+```bash
+curl -X POST http://localhost:8080/reports/generate/preview \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Raport Q1 2026 - Tops",
+    "filters": {
+      "departmentName": "Tops",
+      "minRating": 1,
+      "maxRating": 5
+    }
+  }'
+```
+
+Oczekiwane: informacja o liczbie rekordow, limicie i tym, czy raport da sie wygenerowac.
+
 ```bash
 curl -X POST http://localhost:8080/reports/generate \
   -H "Content-Type: application/json" \
@@ -169,7 +189,7 @@ curl -s http://localhost:8080/reports/{REPORT_ID}
 curl -s -o raport.pdf http://localhost:8080/reports/{REPORT_ID}/pdf
 ```
 
-Wymaga statusu `completed`.
+Wymaga statusu `completed` po przetworzeniu wyniku przez workera.
 
 ### 5.4 Usuniecie
 
@@ -179,59 +199,16 @@ curl -X DELETE http://localhost:8080/reports/{REPORT_ID}
 
 ---
 
-## 6. Symulacja callbackow AI workera
+## 6. Wyniki workera
 
-### 6.1 Wyniki analizy
+Backend nie wystawia publicznych endpointow callbackowych dla workera. Wyniki i bledy sa odbierane z kolejek RabbitMQ:
 
-```bash
-curl -X POST http://localhost:8080/api/worker/uploads/{UPLOAD_ID}/results \
-  -H "Content-Type: application/json" \
-  -d '{
-    "results": [
-      {
-        "reviewId": "<UUID>",
-        "overallSentiment": "positive",
-        "aspectSentiments": [{"aspect": "fit", "sentiment": "positive", "confidence": 0.9}],
-        "churnProbability": 12,
-        "churnCauses": [],
-        "priority": "low"
-      }
-    ]
-  }'
-```
+- `review-insights.uploads.results`
+- `review-insights.uploads.errors`
+- `review-insights.reports.result`
+- `review-insights.reports.errors`
 
-### 6.2 Wynik raportu
-
-```bash
-curl -X POST http://localhost:8080/api/worker/reports/{REPORT_ID}/result \
-  -H "Content-Type: application/json" \
-  -d '{
-    "summary": {
-      "averageRating": 4.2,
-      "recommendationRate": 78.5,
-      "sentimentBreakdown": {"positive": 120, "neutral": 40, "negative": 15},
-      "topChurnCauses": [{"cause": "sizing_issues", "count": 8}]
-    },
-    "insights": [
-      {"id": "00000000-0000-0000-0000-000000000001", "type": "trend", "title": "Spadek satysfakcji", "description": "...", "severity": "high"}
-    ],
-    "suggestions": [
-      {"id": "00000000-0000-0000-0000-000000000002", "action": "Zmien dostawce materialu", "reasoning": "...", "priority": "high", "relatedProducts": [1234]}
-    ]
-  }'
-```
-
-### 6.3 Bledy
-
-```bash
-curl -X POST http://localhost:8080/api/worker/uploads/{UPLOAD_ID}/error \
-  -H "Content-Type: application/json" \
-  -d '{"errorMessage": "LLM timeout"}'
-
-curl -X POST http://localhost:8080/api/worker/reports/{REPORT_ID}/error \
-  -H "Content-Type: application/json" \
-  -d '{"errorMessage": "rate limit"}'
-```
+Do testow end-to-end potrzebny jest aktywny worker, ktory konsumuje zadania z kolejek `review-insights.analyze.reviews` oraz `review-insights.generate.report` i publikuje wyniki do kolejek wynikowych.
 
 ---
 
@@ -252,7 +229,7 @@ curl -s http://localhost:8080/dashboard/department-stats
 .\scripts\test-full-flow.ps1
 ```
 
-Skrypt wykonuje: upload pliku -> sprawdzenie listy uploadow -> symulacja callbackow workera -> wygenerowanie raportu -> sprawdzenie listy raportow.
+Skrypt wykonuje upload, czeka na przetworzenie uploadu i raportu przez aktywnego workera, pobiera PDF i sprzata dane testowe.
 
 ---
 

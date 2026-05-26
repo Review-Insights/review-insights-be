@@ -14,7 +14,6 @@ public class UploadsService
 {
     private const long MaxFileSizeBytes = 52_428_800; // 50 MB
     private static readonly string[] AllowedExtensions = [".csv", ".json"];
-    private static readonly string[] AllowedContentTypes = ["text/csv", "application/json", "application/vnd.ms-excel"];
 
     private readonly AppDbContext _db;
     private readonly IFileStorageService _storage;

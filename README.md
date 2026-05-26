@@ -93,15 +93,15 @@ Flaga `-v` usuwa wszystkie volumy (Postgres, MinIO, RabbitMQ).
 
 ## Schemat bazy
 
-Aktualnie schemat tworzony jest przez `db.Database.EnsureCreatedAsync()` przy starcie aplikacji (MVP).
+Schemat bazy jest aktualizowany przy starcie aplikacji przez EF Core migrations (`db.Database.MigrateAsync()`).
 
-> UWAGA: `EnsureCreatedAsync` nie wprowadza zmian w schemacie, jesli baza juz istnieje. Po kazdej modyfikacji typow kolumn lub mapowan w `AppDbContext` (np. zmiana `HasConversion`), nalezy usunac istniejaca baze, zeby przebudowala sie od nowa: `docker compose down -v` (usuwa volumy) albo recznie `DROP DATABASE reviewinsights`.
+> UWAGA: po zmianie modelu nalezy dodac nowa migracje. `docker compose down -v` (albo reczne `DROP DATABASE`) jest potrzebne tylko wtedy, gdy chcesz zaczac od czystego srodowiska, a nie do standardowej ewolucji schematu.
 
 Tabele:
 
 - `file_uploads` - rekord na kazdy upload (status, total/analyzed records, storage key)
-- `reviews` - oryginalne kolumny z datasetu + pola AI (`overall_sentiment`, `aspect_sentiments` jsonb, `churn_probability`, `churn_causes` jsonb, `priority`, `analyzed_at`)
-- `reports` - raporty AI (filtry, summary, insights, suggestions; wszystko JSONB)
+- `reviews` - oryginalne kolumny z datasetu + pola AI (`overall_sentiment`, `aspect_sentiments` jsonb, `priority`, `priority_rule`, `priority_reason`, `analyzed_at`)
+- `reports` - raporty AI (`filters`, `scope`, `summary`, `insights`, `suggestions`; wszystko JSONB)
 
 Indeksy: `reviews(upload_id)`, `reviews(clothing_id)`, `reviews(priority)`, `reviews(overall_sentiment)`, `reviews(created_at)`, `reviews(department_name)`, `reviews(rating)`.
 
@@ -137,7 +137,7 @@ Tabela `products` celowo nie istnieje - listy/agregaty produktowe sa liczone on-
 | GET | `/products/{clothingId}/trends` | Trendy miesieczne (rating, sentiment, count) |
 | GET | `/products/{clothingId}/aspects` | Agregaty aspektow (material, sizing, fit, color, price) |
 
-Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`. Backend ocenia go trendowo z ostatniego miesiaca, porownujac swiezy udzial opinii `high`/`critical` i ich sile do wczesniejszego okresu, dzieki czemu produkt moze zejsc z `critical`, gdy jakosc realnie sie poprawi.
+Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`. Backend stosuje recency-weighted priorytety recenzji, Wilson lower bound dla malych probek, prog "stale" po 365 dniach oraz porownanie do baseline'u klasy produktu.
 
 ### Reports
 
@@ -145,6 +145,7 @@ Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`.
 |--------|----------|------|
 | GET | `/reports` | Lista historycznych raportow |
 | GET | `/reports/{id}` | Detal (summary, insights, suggestions) |
+| POST | `/reports/generate/preview` | Podglad liczby rekordow, limitu i informacji, czy raport moze zostac wygenerowany |
 | POST | `/reports/generate` | Tworzy raport (status=`generating`) i wysyla do AI workera |
 | DELETE | `/reports/{id}` | Usun raport |
 | GET | `/reports/{id}/pdf` | PDF wygenerowany przez QuestPDF (tylko dla `completed`) |
@@ -154,17 +155,24 @@ Priorytet produktu nie jest juz liczony jako historyczne `max(review.priority)`.
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
 | GET | `/uploads` | Lista uploadow (paginacja, filtr `status`) |
+| GET | `/uploads/{id}` | Detal pojedynczego uploadu |
 | POST | `/uploads` | Multipart `file` (CSV/JSON, max 50 MB). Parsuje, zapisuje do MinIO, tworzy `Review` rekordy, publikuje do RabbitMQ. |
 | DELETE | `/uploads/{id}` | Cascade delete: reviews + upload + blob (transakcja) |
 
-### Worker (callback od AI workera)
+### History
 
 | Metoda | Endpoint | Opis |
 |--------|----------|------|
-| POST | `/api/worker/uploads/{uploadId}/results` | Patch pol AI w `reviews`, inkrementacja `analyzed_records`, auto-status `done` |
-| POST | `/api/worker/reports/{reportId}/result` | Zapis `summary`/`insights`/`suggestions`, status `completed` |
-| POST | `/api/worker/uploads/{uploadId}/error` | Status `error` + `error_message` |
-| POST | `/api/worker/reports/{reportId}/error` | Status `failed` + `error_message` |
+| GET | `/history/snapshot?clothingId=...&className=...&divisionName=...` | Snapshot historyczny dla produktu, klasy i segmentu |
+
+### Worker integration
+
+Backend nie wystawia publicznych endpointow callbackowych dla workera. Wyniki i bledy sa odbierane przez `WorkerResultsConsumer` z kolejek RabbitMQ:
+
+- `review-insights.uploads.results`
+- `review-insights.uploads.errors`
+- `review-insights.reports.result`
+- `review-insights.reports.errors`
 
 ---
 
@@ -206,7 +214,11 @@ Backend dzieli recenzje na batche o rozmiarze `RabbitMQ:BatchSize` (domyslnie 20
 }
 ```
 
-Maksymalnie `ReportLimits:MaxReviewsPerReport` (domyslnie 5000) rekordow w jednej wiadomosci.
+Maksymalnie `ReportLimits:MaxReviewsPerReport` (domyslnie 10000) rekordow w jednej wiadomosci.
+
+### Wyniki workera
+
+Wyniki analizy uploadow i raportow wracaja przez kolejki wynikowe/bledow skonfigurowane w sekcji `RabbitMQ`, a nie przez publiczne endpointy HTTP.
 
 ---
 
@@ -219,12 +231,11 @@ Frontend
 review-insights-be  (port 8080)
    +-- PostgreSQL  (port 5432)  -- file_uploads, reviews, reports
    +-- MinIO       (port 9000)  -- pliki CSV/JSON
-   +-- RabbitMQ    (port 5672)  -- 2 kolejki dla AI workera
+   +-- RabbitMQ    (port 5672)  -- kolejki zadan i wynikow dla AI workera
                                     -> analyze.reviews
                                     -> generate.report
-   ^
-   | HTTP callback
-   |
+                                    <- uploads.results / uploads.errors
+                                    <- reports.result / reports.errors
 AI Worker (Python/LangChain) -- poza tym repo
 ```
 
@@ -251,7 +262,6 @@ review-insights-be/
 +-- ReviewInsights.slnx
 +-- README.md
 +-- TESTING.md
-+-- scripts/
 +-- src/
     +-- ReviewInsights.Api/
         +-- Program.cs
@@ -262,16 +272,17 @@ review-insights-be/
         +-- Configuration/           (MinioSettings, RabbitMqSettings, ReportLimits)
         +-- Data/AppDbContext.cs
         +-- Domain/
-        |   +-- Enums/               (Sentiment, Priority, AspectKey, ChurnCause, UploadStatus, ReportStatus, InsightType)
+        |   +-- Enums/               (Sentiment, Priority, AspectKey, UploadStatus, ReportStatus, InsightType)
         |   +-- Entities/            (FileUpload, Review, Report)
-        |   +-- ValueObjects/        (AspectSentiment, ReportFilters, ReportSummary, ReportInsight, ReportSuggestion)
+        |   +-- ValueObjects/        (AspectSentiment, ReportFilters, ReportScope, ReportSummary, ReportInsight, ReportSuggestion)
         +-- Features/
         |   +-- Dashboard/
+        |   +-- History/
         |   +-- Reviews/
         |   +-- Products/
         |   +-- Reports/             (zawiera PdfReportRenderer)
         |   +-- Uploads/             (zawiera CsvJsonReviewParser)
-        |   +-- Worker/              (callback endpointy)
+        |   +-- Worker/              (serwis przetwarzania wynikow workera)
         +-- Infrastructure/          (MinioFileStorageService, RabbitMqService)
         +-- Messaging/               (AnalyzeReviewsMessage, GenerateReportMessage)
 ```
