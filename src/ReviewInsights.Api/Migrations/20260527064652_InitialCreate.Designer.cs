@@ -14,15 +14,15 @@ using ReviewInsights.Api.Domain.ValueObjects;
 namespace ReviewInsights.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260503162719_AddReportScope")]
-    partial class AddReportScope
+    [Migration("20260527064652_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.8")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -176,15 +176,6 @@ namespace ReviewInsights.Api.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("aspect_sentiments");
 
-                    b.PrimitiveCollection<string>("ChurnCauses")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("churn_causes");
-
-                    b.Property<int?>("ChurnProbability")
-                        .HasColumnType("integer")
-                        .HasColumnName("churn_probability");
-
                     b.Property<string>("ClassName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -221,6 +212,15 @@ namespace ReviewInsights.Api.Migrations
                     b.Property<int?>("Priority")
                         .HasColumnType("integer")
                         .HasColumnName("priority");
+
+                    b.Property<string>("PriorityReason")
+                        .HasColumnType("text")
+                        .HasColumnName("priority_reason");
+
+                    b.Property<string>("PriorityRule")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("priority_rule");
 
                     b.Property<int>("Rating")
                         .HasColumnType("integer")
