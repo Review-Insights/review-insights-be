@@ -346,7 +346,7 @@ public class PdfReportRenderer
     {
         col.Item().Column(section =>
         {
-            SectionTitle(section, "Insighty", "Wnioski z analizy AI");
+            SectionTitle(section, "Insights", "Wnioski z analizy AI");
             foreach (var insight in insights)
             {
                 section.Item().PaddingTop(10).Element(c => RenderInsightCard(c, insight));
