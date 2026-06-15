@@ -74,7 +74,7 @@ public class PdfReportRenderer
                         .Text($"{report.GeneratedAt:yyyy-MM-dd HH:mm} UTC")
                         .FontSize(8).FontColor("#cbd5e1");
                     right.Item().AlignRight()
-                        .Text($"{report.TotalRecords} rekordow")
+                        .Text($"{report.TotalRecords} records")
                         .FontSize(8).FontColor("#cbd5e1");
                 });
             });
@@ -85,11 +85,11 @@ public class PdfReportRenderer
     {
         container.BorderTop(1).BorderColor(PdfReportTheme.Border).PaddingTop(6).Row(row =>
         {
-            row.RelativeItem().Text("Review Insights — raport analityczny")
+            row.RelativeItem().Text("Review Insights — analytical report")
                 .FontSize(8).FontColor(PdfReportTheme.Muted);
             row.ConstantItem(80).AlignRight().Text(t =>
             {
-                t.Span("Strona ").FontSize(8).FontColor(PdfReportTheme.Muted);
+                t.Span("Page ").FontSize(8).FontColor(PdfReportTheme.Muted);
                 t.CurrentPageNumber().FontSize(8).FontColor(PdfReportTheme.Muted);
                 t.Span(" / ").FontSize(8).FontColor(PdfReportTheme.Muted);
                 t.TotalPages().FontSize(8).FontColor(PdfReportTheme.Muted);
@@ -106,9 +106,9 @@ public class PdfReportRenderer
                 hero.Item().PaddingTop(6).Text(text =>
                 {
                     text.Span("Status: ").FontColor(PdfReportTheme.Muted);
-                    text.Span(EnumParser.GetEnumMemberValue(report.Status)).SemiBold();
+                    text.Span(Humanize(EnumParser.GetEnumMemberValue(report.Status))).SemiBold();
                     text.Span("  ·  ").FontColor(PdfReportTheme.Muted);
-                    text.Span("Wygenerowano: ").FontColor(PdfReportTheme.Muted);
+                    text.Span("Generated: ").FontColor(PdfReportTheme.Muted);
                     text.Span($"{report.GeneratedAt:yyyy-MM-dd HH:mm} UTC").SemiBold();
                 });
             });
@@ -134,12 +134,12 @@ public class PdfReportRenderer
     {
         col.Item().Column(section =>
         {
-            SectionTitle(section, "Zakres raportu");
+            SectionTitle(section, "Report scope");
             section.Item().PaddingTop(10).Row(row =>
             {
-                row.RelativeItem().Element(c => MetricCard(c, "Przeanalizowane", scope.AnalyzedReviewCount.ToString(), PdfReportTheme.Accent));
+                row.RelativeItem().Element(c => MetricCard(c, "Analyzed", scope.AnalyzedReviewCount.ToString(), PdfReportTheme.Accent));
                 row.ConstantItem(10);
-                row.RelativeItem().Element(c => MetricCard(c, "Pominiete", scope.SkippedReviewCount.ToString(), PdfReportTheme.Muted));
+                row.RelativeItem().Element(c => MetricCard(c, "Skipped", scope.SkippedReviewCount.ToString(), PdfReportTheme.Muted));
             });
         });
     }
@@ -151,30 +151,30 @@ public class PdfReportRenderer
             var hasFilters = HasActiveFilters(f);
             SectionTitle(
                 section,
-                "Filtry",
-                hasFilters ? "Kryteria wyboru danych do raportu" : "Brak — uwzgledniono wszystkie dostepne recenzje");
+                "Filters",
+                hasFilters ? "Data selection criteria" : "None — all available reviews included");
 
             section.Item().PaddingTop(10).Background(PdfReportTheme.Surface).Border(1)
                 .BorderColor(PdfReportTheme.Border).Padding(12).Column(c =>
                 {
                     if (!hasFilters)
                     {
-                        c.Item().Text("BRAK").FontSize(12).Bold().FontColor(PdfReportTheme.Muted);
-                        c.Item().PaddingTop(4).Text("Nie ustawiono zadnych filtrow.")
+                        c.Item().Text("NONE").FontSize(12).Bold().FontColor(PdfReportTheme.Muted);
+                        c.Item().PaddingTop(4).Text("No filters were set.")
                             .FontSize(9).Italic().FontColor(PdfReportTheme.Muted);
                         return;
                     }
 
-                    if (f.DateFrom is not null) c.Item().Element(x => FilterChip(x, "Od", f.DateFrom.Value.ToString("yyyy-MM-dd")));
-                    if (f.DateTo is not null) c.Item().Element(x => FilterChip(x, "Do", f.DateTo.Value.ToString("yyyy-MM-dd")));
-                    if (!string.IsNullOrWhiteSpace(f.DepartmentName)) c.Item().Element(x => FilterChip(x, "Departament", f.DepartmentName));
-                    if (!string.IsNullOrWhiteSpace(f.DivisionName)) c.Item().Element(x => FilterChip(x, "Dywizja", f.DivisionName));
-                    if (!string.IsNullOrWhiteSpace(f.ClassName)) c.Item().Element(x => FilterChip(x, "Klasa", f.ClassName));
-                    if (f.ClothingId is not null) c.Item().Element(x => FilterChip(x, "Produkt", $"#{f.ClothingId}"));
+                    if (f.DateFrom is not null) c.Item().Element(x => FilterChip(x, "From", f.DateFrom.Value.ToString("yyyy-MM-dd")));
+                    if (f.DateTo is not null) c.Item().Element(x => FilterChip(x, "To", f.DateTo.Value.ToString("yyyy-MM-dd")));
+                    if (!string.IsNullOrWhiteSpace(f.DepartmentName)) c.Item().Element(x => FilterChip(x, "Department", f.DepartmentName));
+                    if (!string.IsNullOrWhiteSpace(f.DivisionName)) c.Item().Element(x => FilterChip(x, "Division", f.DivisionName));
+                    if (!string.IsNullOrWhiteSpace(f.ClassName)) c.Item().Element(x => FilterChip(x, "Class", f.ClassName));
+                    if (f.ClothingId is not null) c.Item().Element(x => FilterChip(x, "Product", $"#{f.ClothingId}"));
                     if (f.MinRating is not null || f.MaxRating is not null)
                     {
                         var range = $"{f.MinRating ?? 1} – {f.MaxRating ?? 5}";
-                        c.Item().Element(x => FilterChip(x, "Ocena", range));
+                        c.Item().Element(x => FilterChip(x, "Rating", range));
                     }
                 });
         });
@@ -203,19 +203,19 @@ public class PdfReportRenderer
     {
         col.Item().Column(section =>
         {
-            SectionTitle(section, "Podsumowanie", "Kluczowe metryki z przeanalizowanych opinii");
+            SectionTitle(section, "Summary", "Key metrics from analyzed reviews");
             section.Item().PaddingTop(10).Row(row =>
             {
-                row.RelativeItem().Element(c => MetricCard(c, "Recenzje", s.TotalReviews.ToString(), PdfReportTheme.Accent));
+                row.RelativeItem().Element(c => MetricCard(c, "Reviews", s.TotalReviews.ToString(), PdfReportTheme.Accent));
                 row.ConstantItem(8);
-                row.RelativeItem().Element(c => MetricCard(c, "Srednia ocena", $"{s.AverageRating:F2}", PdfReportTheme.RatingColor(s.AverageRating), "/ 5"));
+                row.RelativeItem().Element(c => MetricCard(c, "Average rating", $"{s.AverageRating:F2}", PdfReportTheme.RatingColor(s.AverageRating), "/ 5"));
                 row.ConstantItem(8);
-                row.RelativeItem().Element(c => MetricCard(c, "Rekomendacja", $"{s.RecommendationRate:F1}%", PdfReportTheme.RecommendationColor(s.RecommendationRate)));
+                row.RelativeItem().Element(c => MetricCard(c, "Recommendation", $"{s.RecommendationRate:F1}%", PdfReportTheme.RecommendationColor(s.RecommendationRate)));
             });
 
             if (s.SentimentBreakdown.Count > 0)
             {
-                section.Item().PaddingTop(14).Text("Rozklad sentymentu").FontSize(11).SemiBold()
+                section.Item().PaddingTop(14).Text("Sentiment breakdown").FontSize(11).SemiBold()
                     .FontColor(PdfReportTheme.Primary);
                 section.Item().PaddingTop(6).Element(c => RenderBreakdownBars(c, s.SentimentBreakdown
                     .ToDictionary(k => EnumParser.GetEnumMemberValue(k.Key), v => v.Value), SentimentBarColor));
@@ -223,7 +223,7 @@ public class PdfReportRenderer
 
             if (s.PriorityBreakdown.Count > 0)
             {
-                section.Item().PaddingTop(14).Text("Rozklad priorytetow").FontSize(11).SemiBold()
+                section.Item().PaddingTop(14).Text("Priority breakdown").FontSize(11).SemiBold()
                     .FontColor(PdfReportTheme.Primary);
                 section.Item().PaddingTop(6).Element(c => RenderBreakdownBars(c, s.PriorityBreakdown
                     .ToDictionary(k => EnumParser.GetEnumMemberValue(k.Key), v => v.Value), PriorityBarColor));
@@ -231,7 +231,7 @@ public class PdfReportRenderer
 
             if (s.TopProblemProducts.Count > 0)
             {
-                section.Item().PaddingTop(14).Text("Produkty najwyzszego ryzyka").FontSize(11).SemiBold()
+                section.Item().PaddingTop(14).Text("Highest-risk products").FontSize(11).SemiBold()
                     .FontColor("#dc2626");
                 foreach (var product in s.TopProblemProducts)
                 {
@@ -241,7 +241,7 @@ public class PdfReportRenderer
 
             if (s.TopOpportunityProducts.Count > 0)
             {
-                section.Item().PaddingTop(14).Text("Produkty z najwieksza szansa").FontSize(11).SemiBold()
+                section.Item().PaddingTop(14).Text("Highest-opportunity products").FontSize(11).SemiBold()
                     .FontColor("#16a34a");
                 foreach (var product in s.TopOpportunityProducts)
                 {
@@ -249,6 +249,14 @@ public class PdfReportRenderer
                 }
             }
         });
+    }
+
+    // Turns machine labels such as "very_positive" or "high" into "Very positive" / "High".
+    private static string Humanize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        var text = value.Replace('_', ' ').Trim();
+        return char.ToUpperInvariant(text[0]) + text[1..];
     }
 
     private static string SentimentBarColor(string key) => key switch
@@ -284,7 +292,7 @@ public class PdfReportRenderer
                 {
                     row.Item().Row(header =>
                     {
-                        header.RelativeItem().Text(label).FontSize(9).SemiBold();
+                        header.RelativeItem().Text(Humanize(label)).FontSize(9).SemiBold();
                         header.ConstantItem(60).AlignRight().Text($"{count} ({ratio:P0})").FontSize(9)
                             .FontColor(PdfReportTheme.Muted);
                     });
@@ -315,21 +323,21 @@ public class PdfReportRenderer
                 {
                     c.Item().Row(title =>
                     {
-                        title.RelativeItem().Text($"Produkt #{product.ClothingId}").FontSize(11).SemiBold();
+                        title.RelativeItem().Text($"Product #{product.ClothingId}").FontSize(11).SemiBold();
                         title.ConstantItem(80).AlignRight().Background(accent).PaddingHorizontal(6).PaddingVertical(2)
-                            .Text(isRisk ? "Ryzyko" : "Szansa").FontSize(8).SemiBold()
+                            .Text(isRisk ? "Risk" : "Opportunity").FontSize(8).SemiBold()
                             .FontColor(isRisk ? "#991b1b" : "#166534");
                     });
                     c.Item().PaddingTop(4).Row(metrics =>
                     {
-                        metrics.RelativeItem().Element(x => MiniMetric(x, "Ocena", $"{product.AverageRating:F2}",
+                        metrics.RelativeItem().Element(x => MiniMetric(x, "Rating", $"{product.AverageRating:F2}",
                             PdfReportTheme.RatingColor(product.AverageRating)));
                         metrics.ConstantItem(8);
-                        metrics.RelativeItem().Element(x => MiniMetric(x, "Rekomendacja",
+                        metrics.RelativeItem().Element(x => MiniMetric(x, "Recommendation",
                             $"{product.RecommendationRate:F0}%",
                             PdfReportTheme.RecommendationColor(product.RecommendationRate)));
                         metrics.ConstantItem(8);
-                        metrics.RelativeItem().Element(x => MiniMetric(x, "Negatywne",
+                        metrics.RelativeItem().Element(x => MiniMetric(x, "Negative",
                             $"{product.NegativeReviewRate:F0}%", isRisk ? "#dc2626" : PdfReportTheme.Muted));
                     });
                     if (!string.IsNullOrWhiteSpace(product.DepartmentName) || !string.IsNullOrWhiteSpace(product.ClassName))
@@ -346,7 +354,7 @@ public class PdfReportRenderer
     {
         col.Item().Column(section =>
         {
-            SectionTitle(section, "Insights", "Wnioski z analizy AI");
+            SectionTitle(section, "Insights", "Findings from AI analysis");
             foreach (var insight in insights)
             {
                 section.Item().PaddingTop(10).Element(c => RenderInsightCard(c, insight));
@@ -372,7 +380,7 @@ public class PdfReportRenderer
                         c.Item().Text(insight.Title).FontSize(12).SemiBold().FontColor(PdfReportTheme.Primary);
                     });
                     row.ConstantItem(70).AlignRight().AlignMiddle().Background(prioBg).Padding(4)
-                        .Text(EnumParser.GetEnumMemberValue(insight.Severity)).FontSize(8).Bold().FontColor(prioFg);
+                        .Text(Humanize(EnumParser.GetEnumMemberValue(insight.Severity))).FontSize(8).Bold().FontColor(prioFg);
                 });
             });
             card.Item().Padding(12).Column(body =>
@@ -390,7 +398,7 @@ public class PdfReportRenderer
                 {
                     body.Item().PaddingTop(6).Text(t =>
                     {
-                        t.Span("Produkty: ").FontSize(8).FontColor(PdfReportTheme.Muted);
+                        t.Span("Products: ").FontSize(8).FontColor(PdfReportTheme.Muted);
                         t.Span(string.Join(", ", insight.RelatedProducts.Select(p => $"#{p}"))).FontSize(9);
                     });
                 }
@@ -403,7 +411,7 @@ public class PdfReportRenderer
     {
         col.Item().Column(section =>
         {
-            SectionTitle(section, "Sugerowane dzialania", "Rekomendacje operacyjne");
+            SectionTitle(section, "Suggested actions", "Operational recommendations");
             foreach (var suggestion in suggestions)
             {
                 section.Item().PaddingTop(10).Element(c => RenderSuggestionCard(c, suggestion));
@@ -421,7 +429,7 @@ public class PdfReportRenderer
             {
                 header.RelativeItem().Text(suggestion.Action).FontSize(12).SemiBold().FontColor(prioFg);
                 header.ConstantItem(70).AlignRight().Background(Colors.White).Padding(4)
-                    .Text(EnumParser.GetEnumMemberValue(suggestion.Priority)).FontSize(8).Bold().FontColor(prioFg);
+                    .Text(Humanize(EnumParser.GetEnumMemberValue(suggestion.Priority))).FontSize(8).Bold().FontColor(prioFg);
             });
             card.Item().Padding(12).Column(body =>
             {
@@ -438,7 +446,7 @@ public class PdfReportRenderer
                 {
                     body.Item().PaddingTop(8).Background(PdfReportTheme.AccentSoft).Padding(8).Column(impact =>
                     {
-                        impact.Item().Text("Oczekiwany efekt").FontSize(8).Bold().FontColor(PdfReportTheme.Accent);
+                        impact.Item().Text("Expected impact").FontSize(8).Bold().FontColor(PdfReportTheme.Accent);
                         impact.Item().Text(suggestion.ExpectedImpact).FontSize(9);
                     });
                 }
@@ -446,7 +454,7 @@ public class PdfReportRenderer
                 {
                     body.Item().PaddingTop(6).Text(t =>
                     {
-                        t.Span("Produkty: ").FontSize(8).FontColor(PdfReportTheme.Muted);
+                        t.Span("Products: ").FontSize(8).FontColor(PdfReportTheme.Muted);
                         t.Span(string.Join(", ", suggestion.RelatedProducts.Select(p => $"#{p}"))).FontSize(9);
                     });
                 }
@@ -488,7 +496,7 @@ public class PdfReportRenderer
             !string.IsNullOrWhiteSpace(item.Label) || !string.IsNullOrWhiteSpace(item.Detail)).ToList();
         if (items.Count == 0) return;
 
-        col.Item().PaddingTop(8).Text("Dowody").FontSize(8).Bold().FontColor(PdfReportTheme.Muted);
+        col.Item().PaddingTop(8).Text("Evidence").FontSize(8).Bold().FontColor(PdfReportTheme.Muted);
         foreach (var item in items)
         {
             col.Item().PaddingTop(4).Background(PdfReportTheme.Surface).BorderLeft(2)

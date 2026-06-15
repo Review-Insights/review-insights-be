@@ -49,8 +49,8 @@ internal static class PdfReportTheme
     public static (string Accent, string Label) InsightTypeStyle(InsightType type) => type switch
     {
         InsightType.Trend => ("#2563eb", "Trend"),
-        InsightType.Anomaly => ("#dc2626", "Anomalia"),
-        InsightType.Pattern => ("#7c3aed", "Wzorzec"),
+        InsightType.Anomaly => ("#dc2626", "Anomaly"),
+        InsightType.Pattern => ("#7c3aed", "Pattern"),
         _ => ("#64748b", "Insight")
     };
 
