@@ -6,10 +6,10 @@ Domyslnie komendy zakladaja API pod `http://localhost:8080` (wariant dockerowy).
 
 ## Zanim zaczniesz
 
-- backend musi byc uruchomiony,
-- do pelnego flow potrzebny jest aktywny worker,
-- przy Dockerze wystarczy `.env`,
-- przy lokalnym `dotnet run` potrzebne jest tez `src/ReviewInsights.Api/appsettings.Development.json`.
+- backend musi byc uruchomiony — najpierw `cp .env.example .env`, potem `docker compose up --build -d`,
+- smoke test (health, dashboard, listy) dziala bez workera,
+- pelny flow (upload → analiza → raport → PDF) wymaga aktywnego workera z repo [`agent`](../../agent/docs/running.md) + kluczy API LLM,
+- przy lokalnym `dotnet run` potrzebne jest tez `src/ReviewInsights.Api/appsettings.Development.json` (skopiuj z `appsettings.Development.Example.json`; hasla musza zgadzac sie z `.env`).
 
 W trybie Development dostepne sa tez:
 
@@ -49,6 +49,8 @@ Oczekiwany wynik:
 - odpowiedzi sa poprawnym JSON-em nawet przy pustej bazie.
 
 ## Pelny flow z workerem
+
+Najpierw uruchom workera wedlug [`agent/docs/running.md`](../../agent/docs/running.md) (`python main.py` w katalogu `agent`).
 
 Najprostsza opcja na Windowsie:
 

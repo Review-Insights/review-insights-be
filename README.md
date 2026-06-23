@@ -21,17 +21,33 @@ W RabbitMQ backend korzysta z jednego exchange'a, dwoch kolejek zadan i czterech
 - zadania do workera: `review-insights.analyze.reviews`, `review-insights.generate.report`
 - wyniki i bledy odbierane przez backend: `review-insights.uploads.results`, `review-insights.uploads.errors`, `review-insights.reports.result`, `review-insights.reports.errors`
 
+## Wymagania
+
+| Wariant | Co jest potrzebne |
+|---------|-------------------|
+| Docker Compose (zalecany) | Docker + Docker Compose |
+| API lokalnie (`dotnet run`) | .NET 10 SDK + Docker (Postgres, MinIO, RabbitMQ) |
+| Pelny flow (upload, analiza, raport, PDF) | powyzsze + worker z repo [`agent`](../agent/docs/running.md) + klucze API LLM |
+
 ## Uruchomienie
 
-### Wariant dockerowy
+### Wariant dockerowy (zalecany)
 
-1. Skopiuj `.env.example` do `.env`.
-2. Uzupelnij hasla i nazwy kontenerow.
-3. Uruchom:
+1. Skopiuj szablon konfiguracji:
+
+```bash
+cp .env.example .env
+```
+
+Domyslne wartosci w `.env.example` do lokalnego dev.
+
+2. Uruchom stack:
 
 ```bash
 docker compose up --build -d
 ```
+
+Smoke test API: `curl http://localhost:8080/health` (oczekiwany wynik: `Healthy`). Wiecej w `docs/TESTING.md`.
 
 Po starcie:
 
@@ -46,19 +62,27 @@ Po starcie:
 
 ### API lokalnie, infrastruktura w Dockerze
 
-1. Uruchom Postgresa, MinIO i RabbitMQ:
+1. Przygotuj `.env` (jesli jeszcze go nie masz):
+
+```bash
+cp .env.example .env
+```
+
+2. Uruchom Postgresa, MinIO i RabbitMQ:
 
 ```bash
 docker compose up -d postgres minio rabbitmq
 ```
 
-2. Skopiuj szablon konfiguracji developerskiej:
+3. Skopiuj szablon konfiguracji developerskiej:
 
 ```bash
 cp src/ReviewInsights.Api/appsettings.Development.Example.json src/ReviewInsights.Api/appsettings.Development.json
 ```
 
-3. Uzupelnij wartosci lokalne i uruchom API:
+Hasla w `appsettings.Development.json` musza odpowiadac wartosciom z `.env` (domyslne z `.env.example` juz pasuja).
+
+4. Uruchom API:
 
 ```bash
 dotnet run --project src/ReviewInsights.Api
@@ -70,20 +94,15 @@ Jesli frontend ma laczyc sie z lokalnym backendem uruchomionym poza Dockerem, us
 
 ## Sekrety i konfiguracja
 
-W repo powinny zostac tylko szablony i konfiguracja niesekretna:
-
 | Plik | Rola |
 |------|------|
-| `src/ReviewInsights.Api/appsettings.json` | bazowa konfiguracja aplikacji |
-| `.env.example` | szablon dla `docker compose` |
+| `src/ReviewInsights.Api/appsettings.json` | bazowa konfiguracja aplikacji (bez sekretow) |
+| `.env.example` | szablon z domyslnymi wartosciami dev — skopiuj do `.env` przed pierwszym uruchomieniem |
+| `.env` | lokalna konfiguracja dla `docker compose` — **nie** w repo (`.gitignore`) |
 | `src/ReviewInsights.Api/appsettings.Development.Example.json` | szablon lokalnej konfiguracji dla `dotnet run` |
+| `src/ReviewInsights.Api/appsettings.Development.json` | lokalna konfiguracja dla `dotnet run` — **nie** w repo (`.gitignore`) |
 
-Lokalne sekrety trzymaj w:
-
-- `.env`
-- `src/ReviewInsights.Api/appsettings.Development.json`
-
-Te pliki nie powinny byc publikowane. Jesli repo juz je sledzi, przed wypchnieciem zmian usun je z gita i zostaw tylko kopie lokalne.
+Domyslne hasla w `.env.example` (`postgres`, `minioadmin`, `guest`) sa tylko do lokalnego dev. W produkcji ustaw wlasne wartosci w `.env`.
 
 ## Dane i migracje
 
@@ -98,6 +117,8 @@ Glowne tabele:
 Tabela `products` nie istnieje. Lista i detal produktu sa liczone na biezaco z `reviews` po `clothing_id`.
 
 ## Integracja z workerem
+
+Worker (Python/Celery) jest w osobnym repo [`agent`](../agent/docs/running.md). Bez niego uploady zostaja w statusie `analyzing`, a raporty w `generating`.
 
 Backend nie wystawia publicznych endpointow callbackowych typu `/api/worker/*`.
 

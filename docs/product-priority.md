@@ -2,7 +2,7 @@
 
 Source: `src/ReviewInsights.Api/Features/Products/ProductsService.cs`
 
-The backend computes a product-level priority by aggregating the per-review priority tags assigned by the agent_worker. Three ideas drive the algorithm.
+The backend computes a product-level priority by aggregating the per-review priority tags assigned by the worker (`agent`). Three ideas drive the algorithm.
 
 ---
 
@@ -68,5 +68,5 @@ The **dominant rule** (the `rule_id` with the highest recency-weighted count) is
 
 ## See also
 
-- Per-review priority tagging (agent_worker): `agent_worker/src/heuristics/README.md`
-- Full system overview: `docs/product-priority.md`
+- Per-review priority tagging (worker): [`agent/docs/priority.md`](../../agent/docs/priority.md)
+- System overview and worker integration: [`agent/docs/overview.md`](../../agent/docs/overview.md)
